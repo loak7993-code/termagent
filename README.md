@@ -1,3 +1,4 @@
+t.me/destinedtt
 # termagent
 
 A tiny terminal AI coding agent — like `opencode`, `codex`, and `claude code`, but
