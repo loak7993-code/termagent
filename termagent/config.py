@@ -5,6 +5,8 @@ import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from .zen import DEFAULT_FREE_MODEL
+
 CONFIG_DIR_ENV = "TERMAGENT_CONFIG_DIR"
 DEFAULT_CONFIG_DIR = Path.home() / ".config" / "termagent"
 CONFIG_FILENAME = "config.json"
@@ -14,13 +16,16 @@ CONFIG_FILENAME = "config.json"
 class Config:
     api_key: str = ""
     base_url: str = "https://opencode.ai/zen/v1"
-    model: str = "north-mini-code-free"
+    model: str = DEFAULT_FREE_MODEL
     system: str = ""
     max_turns: int = 24
     auto_approve: bool = False
     history_lines: int = 2000
     tools: list[str] = field(default_factory=list)
     extra_headers: dict[str, str] = field(default_factory=dict)
+    theme: str = "opencode"
+    syntax_theme: str = "ansi_dark"
+    show_reasoning: bool = False
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -85,6 +90,16 @@ def load() -> Config:
         cfg.model = os.environ["TERMAGENT_MODEL"]
     if os.environ.get("TERMAGENT_AUTO_APPROVE"):
         cfg.auto_approve = os.environ["TERMAGENT_AUTO_APPROVE"].lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+    if os.environ.get("TERMAGENT_THEME"):
+        cfg.theme = os.environ["TERMAGENT_THEME"]
+    if os.environ.get("TERMAGENT_SYNTAX_THEME"):
+        cfg.syntax_theme = os.environ["TERMAGENT_SYNTAX_THEME"]
+    if os.environ.get("TERMAGENT_SHOW_REASONING"):
+        cfg.show_reasoning = os.environ["TERMAGENT_SHOW_REASONING"].lower() in (
             "1",
             "true",
             "yes",

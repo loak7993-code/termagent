@@ -112,5 +112,6 @@ else
 fi
 
 echo
-ok "Done. Run:  termagent          (free OpenCode Zen model, no API key needed)"
+ok "Done. Run:  termagent          (OpenCode Zen by default; set a key with"
+echo "            termagent --config, or point -b/-k at any OpenAI-compatible endpoint)"
 echo "  /models inside the REPL to switch models.  See:  termagent --help"

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 
 from .base import Tool, ToolContext, ToolResult, register
 from .read import resolve

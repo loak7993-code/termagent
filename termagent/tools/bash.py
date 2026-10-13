@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import shlex
 import subprocess
 
 from .base import Tool, ToolContext, ToolResult, register

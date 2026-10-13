@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import os
 import stat
 from datetime import datetime
-from pathlib import Path
 
 from .base import Tool, ToolContext, ToolResult, register
 from .read import resolve

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 from . import tools
 from .client import APIError, Client
 from .config import Config
@@ -7,15 +9,18 @@ from .tools.base import ToolContext, parse_args
 
 
 class Agent:
-    def __init__(self, cfg: Config, ctx: ToolContext, *, on_text=None, on_tool_start=None,
-                 on_tool_result=None, on_assistant_done=None, on_error=None, on_meta=None):
+    def __init__(self, cfg: Config, ctx: ToolContext, *, on_text=None,
+                 on_reasoning=None, on_tool_start=None, on_tool_result=None,
+                 on_assistant_done=None, on_error=None, on_meta=None):
         self.cfg = cfg
         self.ctx = ctx
         self.client = Client(cfg.api_key, cfg.base_url, cfg.model, cfg.extra_headers)
         self.messages: list[dict] = []
         self.on_text = on_text or (lambda s: None)
+        self.on_reasoning = on_reasoning or (lambda s: None)
         self.on_tool_start = on_tool_start or (lambda name, args: None)
-        self.on_tool_result = on_tool_result or (lambda name, args, result, err: None)
+        self.on_tool_result = on_tool_result or (
+            lambda name, args, result, err, duration_ms: None)
         self.on_assistant_done = on_assistant_done or (lambda text: None)
         self.on_error = on_error or (lambda msg: None)
         self.on_meta = on_meta or (lambda **kw: None)
@@ -38,8 +43,11 @@ class Agent:
         for turn in range(self.cfg.max_turns):
             content_parts: list[str] = []
             tool_calls: list[dict] = []
+            turn_start = time.monotonic()
             try:
                 for delta in self.client.stream_chat(self.messages, schemas):
+                    if delta.reasoning:
+                        self.on_reasoning(delta.reasoning)
                     if delta.content:
                         content_parts.append(delta.content)
                         self.on_text(delta.content)
@@ -54,14 +62,12 @@ class Agent:
 
             assistant = {"role": "assistant"}
             content = "".join(content_parts)
-            if content:
-                assistant["content"] = content
-            else:
-                assistant["content"] = None
+            assistant["content"] = content or None
             if tool_calls:
                 assistant["tool_calls"] = tool_calls
             self.messages.append(assistant)
             self.on_assistant_done(content)
+            self._emit_meta(turn_start)
 
             if not tool_calls:
                 return
@@ -72,8 +78,11 @@ class Agent:
                 raw_args = fn.get("arguments", "")
                 args = parse_args(raw_args)
                 self.on_tool_start(name, args)
+                tool_start = time.monotonic()
                 result = self._exec(name, args)
-                self.on_tool_result(name, args, result.content, result.is_error)
+                duration_ms = int((time.monotonic() - tool_start) * 1000)
+                self.on_tool_result(name, args, result.content, result.is_error,
+                                    duration_ms)
                 self.messages.append({
                     "role": "tool",
                     "tool_call_id": call.get("id", name),
@@ -82,6 +91,15 @@ class Agent:
                 })
 
         self.on_error("max turns reached; stopping to avoid runaway tool use.")
+
+    def _emit_meta(self, turn_start: float) -> None:
+        usage = self.client.last_usage
+        self.on_meta(
+            prompt_tokens=usage.prompt_tokens if usage else 0,
+            completion_tokens=usage.completion_tokens if usage else 0,
+            model=usage.model if usage else self.cfg.model,
+            elapsed_ms=int((time.monotonic() - turn_start) * 1000),
+        )
 
     def _exec(self, name: str, args: dict):
         tool = tools.get(name)

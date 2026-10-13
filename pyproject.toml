@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "termagent"
-version = "0.1.0"
+version = "0.2.0"
 description = "A terminal AI coding agent for Termux (and any POSIX shell). Like opencode / codex / claude code, but tiny and Python."
 readme = "README.md"
 requires-python = ">=3.9"

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 
 from .base import Tool, ToolContext, ToolResult, register
 
