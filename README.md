@@ -1,227 +1,190 @@
 # termagent
 
-A tiny terminal AI coding agent — like `opencode`, `codex`, and `claude code`, but
-written in Python so it installs and runs cleanly on **Termux (Android)** as well as
-any Linux/macOS shell. The UI is themed after [termcn](https://www.termcn.dev), a
-terminal component library: semantic color themes, round-bordered panels, status
-symbols, braille spinners, and AI chat components (tool calls, approvals, token
-usage) ported to plain `rich`.
+A terminal AI coding agent — like `opencode`, `codex`, and `claude code` — rewritten in
+**TypeScript** on [Ink](https://github.com/vadimdemedes/ink) with the UI component system of
+[termcn](https://www.termcn.dev). Runs on any POSIX shell including **Termux (Android)**.
 
-It speaks the **OpenAI-compatible Chat Completions API** (with tool/function calling,
-streaming, reasoning deltas, and usage reporting), so it works with
-[OpenCode Zen](https://opencode.ai/zen) (default), OpenAI, OpenRouter, Together,
-Groq, any `vLLM`/`llama.cpp`/`Ollama`/`LM Studio` OpenAI endpoint, etc.
+It speaks the **OpenAI-compatible Chat Completions API** (streaming, tool calling,
+reasoning deltas, usage reporting), so it works with [OpenCode Zen](https://opencode.ai/zen)
+(default), OpenAI, OpenRouter, Together, Groq, any `vLLM`/`llama.cpp`/`Ollama`/`LM Studio`
+endpoint.
 
-| splash | chat + token usage |
+| startup | chat + tool call + usage |
 |---|---|
-| ![splash](docs/previews/splash.png) | ![chat](docs/previews/chat.png) |
+| ![startup](docs/previews/startup.png) | ![chat](docs/previews/chat.png) |
 
-| tool calls + diffs | approvals |
+| tool approval (risk badge) | model picker |
 |---|---|
-| ![tools](docs/previews/tools.png) | ![approval](docs/previews/approval.png) |
+| ![approval](docs/previews/approval.png) | ![models](docs/previews/models.png) |
 
-| model picker | help |
+| live theme hot-swap (tokyo-night) | help |
 |---|---|
-| ![models](docs/previews/models.png) | ![help](docs/previews/help.png) |
+| ![theme](docs/previews/theme.png) | ![help](docs/previews/help.png) |
 
 ## Features
 
-- Interactive REPL with **streaming** markdown rendering and `●` role labels
-- **Tool use**: `bash`, `read`, `write`, `edit`, `ls`, `glob`, `grep`, `todo` —
-  each call shows a live spinner, duration, and a themed result panel
-- **Diff view** for `edit` results (unified diff, colored +/- lines)
-- **Human-in-the-loop approval** with risk badges (`LOW` / `MEDIUM` / `HIGH`) —
-  dangerous shell commands (`rm -rf`, `curl | sh`, ...) escalate to `HIGH`
-- **Token usage line** per turn: `⟨ 8.4k in / 512 out · model · 3.4s ⟩`
-- **Reasoning support**: models that stream `reasoning_content` show a
-  `✻ thought for Ns` note (`TERMAGENT_SHOW_REASONING=1` prints the full text)
-- **17 termcn themes** (`/theme`): opencode, tokyo-night, catppuccin, nord,
-  gruvbox, vercel, vesper, everforest, github, amoled, flexoki, kanagawa,
-  rosepine, mercury, ayu, carbonfox, default — switchable live, saved to config
-- **`/models` picker** with grouped free/paid lists, fetched live from the provider
-- **Stale-model auto-heal**: if a saved Zen model id disappears upstream, the
-  REPL switches to an available one and tells you
-- Session save/resume (`/save`, `/load`, `/sessions`)
-- Slash commands: `/help /clear /models /model /theme /config /approve /cwd
-  /tools /sys /save /load /sessions /paste`
-- One-shot mode: `termagent "explain this repo"`
-- Minimal dependencies: just `httpx` + `rich` (prompt_toolkit optional)
-- Pure Python, no native compilation — ideal for Termux
-- ASCII fallback everywhere (`TERMAGENT_ASCII=1`) for non-UTF terminals
+- Full-screen Ink TUI on the termcn design system: `❯_` header with status badges,
+  scrollable chat feed, bordered composer, hints footer
+- **Real termcn components**: `ToolCall` (live braille spinner + duration),
+  `ToolApproval` (risk badge, `[y] Approve / [n] Deny / [a] Always allow`),
+  `ModelSelector` (grouped, arrow-key), `TokenUsage` (`⟨ 8.4k in / 512 out · model ⟩`),
+  `ChatMessage`, `ThinkingBlock`, `DiffView`, `Badge`, `Panel`
+- **17 termcn themes**, hot-swappable with `/theme` (persisted), `--theme`, `--list-themes`
+- **Tools**: `bash`, `read`, `write`, `edit` (renders a colored diff), `ls`, `glob`,
+  `grep` (ripgrep if present), `todo`
+- **Approval gates** with risk classification: `rm -rf`, `curl | sh` and friends
+  escalate to `HIGH`
+- **Token usage per turn** via `stream_options.include_usage`; providers that reject
+  the field are retried without it automatically
+- **Reasoning support**: `reasoning_content` streams collapse into a `✻ Thought` block
+  (`TERMAGENT_SHOW_REASONING=1` prints the full text)
+- **Session save/resume** (`/save`, `/load`, `/sessions`) — same JSONL format as the
+  earlier Python build, so old sessions load
+- **Stale-model auto-heal**: if a saved Zen model id disappears upstream, the app
+  switches to an available one and says so
+- One-shot mode: `termagent "explain this repo"` (plain streaming, no TUI)
+- Zero runtime dependencies beyond `ink` + `react` (+ `cli-spinners`, `string-width`)
+- ASCII fallback (`TERMAGENT_ASCII=1`) for non-UTF terminals
 
-## Install on Termux
+## Provider status: OpenCode Zen free tier
 
-```sh
-pkg update && pkg install -y python python-pip git
-pip install httpx rich           # required (or use the [input] extra for nicer input)
-pip install prompt_toolkit       # optional: arrow-key history + multiline editing
-```
+Zen's free models used to work with no key from any client. **As of late 2026 the free
+tier is gated server-side to the official OpenCode client** — third-party clients get
+`403 FreeTierError`. termagent detects this and explains your options instead of dumping
+JSON:
 
-Then either clone this repo and run in place, or install it:
+- Set a Zen API key ([opencode.ai/auth](https://opencode.ai/auth)), then `/models`
+  lists all current Zen models.
+- Or point at any other OpenAI-compatible endpoint (see below).
+
+termagent does not spoof OpenCode's client headers to bypass the gate.
+
+## Install
+
+Requires Node 20+ (`pkg install nodejs git` on Termux).
 
 ```sh
 git clone https://github.com/loak7993-code/termagent && cd termagent
-pip install -e .                 # installs the `termagent` command
+npm install
+npm run build
+npm link                # or: npm install -g .
+termagent
 ```
 
-Or use the one-liner installer (Termux + Linux):
+One-liner installer (Termux + Linux):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/loak7993-code/termagent/main/install.sh | bash
 ```
 
-## Provider status: OpenCode Zen free tier
-
-Zen's free models (`big-pickle`, `ling-3.1-flash-free`, ...) used to work with no
-key from any client. **As of late 2026 the free tier is gated server-side to the
-official OpenCode client** — third-party clients get `403 FreeTierError`.
-termagent detects this and explains your options instead of dumping JSON:
-
-- Set a Zen API key (get one at [opencode.ai/auth](https://opencode.ai/auth)),
-  then `/models` lists all current Zen models.
-- Or point at any other OpenAI-compatible endpoint (see below).
-
-termagent does not spoof OpenCode's client headers to bypass the gate.
-
 ## Configure
 
-Pick **one** of these:
+Pick one:
 
 ```sh
-# 1) Environment variables (also work in ~/.bashrc / Termux)
-export TERMAGENT_API_KEY="sk-..."          # or OPENAI_API_KEY
-export TERMAGENT_BASE_URL="https://api.openai.com/v1"   # or OPENAI_BASE_URL
-export TERMAGENT_MODEL="gpt-4o-mini"       # or OPENAI_MODEL
+# 1) Environment variables
+export TERMAGENT_API_KEY="sk-..."        # or OPENAI_API_KEY
+export TERMAGENT_BASE_URL="https://api.openai.com/v1"
+export TERMAGENT_MODEL="gpt-4o-mini"
 
-# 2) Interactive config file (saved to ~/.config/termagent/config.json)
+# 2) Interactive config (saved to ~/.config/termagent/config.json)
 termagent --config
 ```
 
-### Pointing at other providers
+Other providers:
 
 ```sh
-# OpenCode Zen paid models (needs a Zen API key from opencode.ai/auth)
 termagent -b https://opencode.ai/zen/v1 -k $ZEN_KEY -m glm-5.2
-
-# OpenRouter (hundreds of models)
 termagent -b https://openrouter.ai/api/v1 -k $OPENROUTER_KEY -m "anthropic/claude-3.5-sonnet"
-
-# Local Ollama (OpenAI-compat endpoint) — fully free, runs on-device
-termagent -b http://localhost:11434/v1 -k dummy -m llama3.1
-
-# Local LM Studio / llama.cpp server
-termagent -b http://localhost:1234/v1 -k dummy -m my-model
+termagent -b http://localhost:11434/v1 -k dummy -m llama3.1    # local Ollama
+termagent -b http://localhost:1234/v1 -k dummy -m my-model     # LM Studio / llama.cpp
 ```
 
 ## Usage
 
 ```sh
-termagent                      # interactive REPL in current dir
-termagent "list the python files"   # one-shot, then exit
-termagent -c /path/to/project       # set working directory
-termagent -a                        # auto-approve all tool calls (risky)
-termagent -s 20260721-214103-cc34ae # resume a saved session
-termagent --theme tokyo-night       # pick a UI theme
-termagent --list-themes             # show all 17 themes with swatches
+termagent                      # interactive TUI
+termagent "list the python files"   # one-shot
+termagent -c /path/to/project  # working directory
+termagent -a                   # auto-approve tool calls
+termagent -s 20260721-214103-cc34ae  # resume a session
+termagent --theme tokyo-night  # pick a UI theme
+termagent --list-themes        # all 17 themes
 ```
 
-Inside the REPL:
-
-```
-> find any TODO comments in this repo
-> /models        list & switch models
-> /model glm-5.2 switch model mid-session
-> /theme nord    switch UI theme mid-session
-> /approve on    toggle auto-approve
-> /save          save the conversation
-> /exit
-```
-
-Type `/paste` (or a blank line in paste mode) to enter multi-line input; end with a
-line containing only `.`.
+Inside the TUI: type a task, or `/help` for all commands (`/models`, `/model`,
+`/theme`, `/approve`, `/save`, `/load`, `/sessions`, `/cwd`, `/tools`, `/sys`,
+`/clear`, `/paste`, `/config`, `/exit`). Arrow keys scroll the feed; overlays close
+with `esc`.
 
 ## Configuration reference
 
 | Variable / flag | Purpose | Default |
 |---|---|---|
-| `TERMAGENT_API_KEY` / `-k` | API key for the provider | empty |
+| `TERMAGENT_API_KEY` / `-k` | API key | empty |
 | `TERMAGENT_BASE_URL` / `-b` | OpenAI-compatible base URL | `https://opencode.ai/zen/v1` |
 | `TERMAGENT_MODEL` / `-m` | Model id | `big-pickle` |
-| `TERMAGENT_THEME` / `--theme` | UI theme (see `--list-themes`) | `opencode` |
-| `TERMAGENT_SYNTAX_THEME` | rich syntax theme for code blocks | `ansi_dark` |
-| `TERMAGENT_SHOW_REASONING` | print full reasoning text instead of the note | off |
+| `TERMAGENT_THEME` / `--theme` | UI theme | `opencode` |
+| `TERMAGENT_SHOW_REASONING` | print full reasoning text | off |
 | `TERMAGENT_ASCII` | ASCII-only symbols and borders | off |
 | `TERMAGENT_CONFIG_DIR` | config + sessions directory | `~/.config/termagent` |
 | `--max-turns` | max agent turns per user message | 24 |
 | `-a` / `--auto-approve` | approve tool calls without asking | off |
 
-Settings persist to `~/.config/termagent/config.json` (`/theme`, `/models`,
-`--config` all save).
-
-## How it works
-
-`termagent` sends your messages plus a system prompt and a JSON-schema description
-of its tools to the chat-completions endpoint with `stream: true`. As the model
-streams tokens they render live as markdown. When it emits `tool_calls`, termagent
-runs each tool locally (asking for approval unless auto-approve is on), appends the
-results, and loops back to the model — exactly like opencode/codex/claude-code,
-just smaller. `stream_options.include_usage` is requested per turn; providers that
-reject it are retried without it automatically.
-
-The agent loop, tools, streaming client, themes, and UI components are all plain
-Python under `termagent/` — easy to read and hack on.
-
-## Layout
-
-```
-termagent/
-  cli.py        argparse entry, slash commands (/models, /theme, ...), main loop, one-shot
-  agent.py      the tool-calling loop (timing, usage + reasoning callbacks)
-  client.py     OpenAI-compatible streaming client (SSE + tool-call accumulation + usage)
-  config.py     env + JSON config (defaults: OpenCode Zen)
-  zen.py        OpenCode Zen model catalog + live /models fetch
-  session.py    JSONL conversation save/resume
-  theme.py      17 termcn themes ported from termcn.dev (semantic color tokens)
-  ui.py         termcn components on rich: badges, alerts, tool call/approval,
-                model selector, token usage, diff view, splash, help screen
-  tui.py        REPL input, streaming display, tool rendering, approval prompts
-  tools/
-    base.py     Tool registry + ToolContext
-    bash.py read.py write.py edit.py ls.py glob.py grep.py todo.py
-tests/          pytest suite (agent loop against a local mock SSE server, UI, themes)
-scripts/
-  preview.py    renders the UI scenes to SVG for docs/previews
-docs/previews/  verified screenshots used in this README
-```
-
 ## Build, test, develop
 
 ```sh
-python -m venv .venv && . .venv/bin/activate
-pip install -e . pytest
-pytest -q                       # 16 tests: themes, UI components, full agent loop
-python scripts/preview.py /tmp/previews   # regenerate UI previews (SVG)
+npm install
+npm run typecheck     # tsc --noEmit, strict
+npm test              # vitest: 29 tests (agent loop vs mock SSE server, tools, themes, UI)
+npm run build         # tsc -> dist/
+npm link              # installs the `termagent` binary
+```
+
+To regenerate the UI screenshots: run the app inside tmux and capture panes (see
+`docs/previews/` for the verified outputs).
+
+## Architecture
+
+```
+src/
+  cli.tsx            arg parsing, TUI bootstrap, one-shot mode
+  app/
+    App.tsx          app-shell layout, feed rendering, overlays
+    store.ts         observable store bridging the agent loop to React
+    commands.ts      slash commands, model/theme pickers
+  agent/
+    agent.ts         tool-calling loop (timing, usage, reasoning callbacks)
+    client.ts        fetch-based SSE client (chunked tool-call accumulation, usage)
+    config.ts        JSON config + env overrides
+    zen.ts           OpenCode Zen catalog + live /models fetch
+    session.ts       JSONL session save/resume (compatible with the Python build)
+    tools/           bash, read, ls, glob, grep, write, edit, todo + registry
+  components/ui/     vendored termcn components (shadcn registry, MIT)
+  hooks/ providers/  vendored termcn hooks and theme/unicode providers
+  lib/
+    terminal-themes/ 17 termcn theme palettes (verbatim from the termcn registry)
+    themes.ts        theme registry + resolution
+tests/               vitest suite incl. a scripted OpenAI SSE mock server
+docs/previews/       verified screenshots
 ```
 
 ## Known limitations
 
-- Zen free tier is OpenCode-client-gated upstream (see above); free use requires
-  the official client or a key. Model catalog drift is handled by auto-heal, but
-  new Zen model *families* need a `zen.py` catalog update to appear in `/models`.
-- Models served by Zen via `/messages` or `/responses` (Claude, Gemini, GPT-5.x
-  families) are not drivable by this client and are excluded from the catalog.
-- Context-window meter is not shown (Zen's `/models` does not expose context
-  limits); only token usage per turn is displayed.
-- The REPL is a linear transcript, not a full-screen TUI: no scrollback
-  rewriting or collapsible tool calls. termcn's interactive components
-  (command palette, drawers) need an event loop this project deliberately
-  avoids to stay Termux-friendly.
+- Zen free tier is OpenCode-client-gated upstream (see above); the catalog covers
+  chat-completions families only — Claude/Gemini/GPT-5.x on Zen use `/messages` or
+  `/responses` and are excluded.
+- The model picker shows the first 12 models; `/model <id>` sets any model directly.
+- Reasoning content is summarized as a duration note unless
+  `TERMAGENT_SHOW_REASONING=1`.
+- One-shot mode is plain streaming output (no TUI), like `claude -p`.
+
+## History
+
+`v0.2.0-python` (tag) is the previous pure-Python implementation (`rich`-based,
+termcn-styled). The TypeScript build replaces it; session files are compatible.
 
 ## Credits
 
-Themes and component design ported from [termcn](https://www.termcn.dev)
-(MIT). termagent itself is MIT.
-
-## License
-
-MIT
+UI components and themes from [termcn](https://www.termcn.dev) (MIT), rendered with
+[Ink](https://github.com/vadimdemedes/ink). termagent is MIT.

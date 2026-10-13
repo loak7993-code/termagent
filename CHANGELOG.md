@@ -1,54 +1,55 @@
 # Changelog
 
-## 0.2.0 — termcn UI, provider reality check
+## 1.0.0 — TypeScript rewrite on Ink + termcn
 
-### UI (ported from termcn.dev)
-- New theme system with 17 termcn themes (semantic color tokens: primary,
-  success, warning, error, info, muted, border...), default `opencode`.
-  Switch live with `/theme <name>`, persist via config, `--theme` /
-  `--list-themes` / `TERMAGENT_THEME` on the CLI.
-- New component library on rich: badges, alerts, status lines, splash screen,
-  help screen, key-value panels, model selector, token usage line, thinking
-  note, chat role labels, unified diff view, braille spinner.
-- Tool calls now render like termcn's ToolCall: status symbol, colored name,
-  inline args, duration in ms, themed result panel; `edit` results render a
-  colored unified diff.
-- Approval prompts now render like termcn's ToolApproval: risk border and
-  badge (`LOW`/`MEDIUM`/`HIGH`), tool + arguments, `[y] Approve [n] Deny
-  [a] Always allow`. Dangerous shell patterns (`rm -rf`, `curl | sh`, ...)
-  classify as HIGH risk.
-- REPL prompt restyled: dim cwd line + `❯` accent prompt (prompt_toolkit and
-  plain-input paths), user messages echoed into the transcript with role
-  labels.
-- ASCII fallback (`TERMAGENT_ASCII=1`) for all symbols and borders.
+The Python implementation remains available at the `v0.2.0-python` tag. Session
+files (`~/.config/termagent/sessions/*.jsonl`) and `config.json` carry over.
 
-### Agent / client
-- Token usage per turn via `stream_options.include_usage`; providers that
-  reject the field are retried without it automatically. Usage renders as
-  `⟨ 1.2k in / 340 out · model · 3.4s ⟩` (suppressed when the provider sends
-  none).
-- Reasoning deltas (`reasoning_content`) render a `✻ thought for Ns` note;
-  `TERMAGENT_SHOW_REASONING=1` prints the full text.
-- Tool executions are timed and shown per call.
+### UI
+- Full rewrite of the interface as a full-screen Ink app on the termcn component
+  system (https://termcn.dev): app-shell layout (header with status badges,
+  scrollable chat feed, bordered composer, hints footer).
+- Real interactive termcn components replace the Python build's static renders:
+  ToolCall (live braille spinner, elapsed ms, args), ToolApproval (risk badge with
+  y/n/a keys), ModelSelector (arrow keys + enter, grouped free/paid), TokenUsage,
+  ChatMessage role labels, ThinkingBlock, DiffView (edit results), Badge, Panel.
+- 17 termcn themes with live hot-swap via `/theme` (no restart), persisted to
+  config; also `--theme` / `--list-themes` / `TERMAGENT_THEME`.
+- Edit results render a colored unified diff (termcn DiffView).
+- Arrow keys scroll the feed; esc closes overlays.
 
-### Provider fixes (Zen changed upstream)
-- The 0.1.0 catalog was stale: `north-mini-code-free` and three other free
-  models no longer exist, so fresh installs failed on first message. Catalog
-  rebuilt from the live `/models` list (Oct 2026).
-- Zen's free tier is now gated to the official OpenCode client; the 403
-  FreeTierError is detected and explained with actionable options instead of
-  a raw JSON dump. termagent does not spoof OpenCode's client headers.
-- Stale saved Zen model ids auto-heal against the live list at startup
-  (custom endpoints are never second-guessed).
-- Default model moved to `big-pickle`.
+### Agent
+- Ported agent core: streaming OpenAI-compatible client over fetch (chunked
+  tool-call accumulation, reasoning deltas, usage capture), tool-calling loop with
+  per-tool durations, per-turn token usage.
+- Same 8 tools ported from Python (bash, read, ls, glob, grep, write, edit, todo)
+  with the same result formats; grep still prefers ripgrep.
+- Graceful `stream_options` fallback (providers that reject the field are retried
+  without it).
 
-### Housekeeping
-- `--version` flag added; `termagent/__init__.py` exports `__version__`.
-- pytest suite added: themes, UI components, and the full agent loop against
-  a local mock SSE server (streaming, tool accumulation, usage, reasoning,
-  stream_options fallback).
-- README rewritten; verified UI previews added under `docs/previews/`.
+### Provider fixes carried over from 0.2.0
+- Zen catalog rebuilt from the live /models list; the 0.1.0 default model no
+  longer exists upstream.
+- Zen's free tier is OpenCode-client-gated; the 403 FreeTierError is detected and
+  explained with actionable options (key, other provider, local model). No UA
+  spoofing.
+- Stale Zen model ids auto-heal at startup; custom endpoints are never
+  second-guessed.
 
-## 0.1.0 — initial release
+### Packaging / quality
+- npm package: `npm link` or `npm i -g .` installs the `termagent` binary;
+  Node >= 20; ships compiled `dist/` only (no source maps).
+- vitest suite (29 tests): full agent loop against a scripted local SSE mock
+  server, SSE parsing and fallbacks, all 8 tools on temp dirs, theme registry
+  completeness, termcn component renders via ink-testing-library.
+- Strict TypeScript, zero `tsc` errors; UI verified in tmux at 100x40 with
+  screenshots in `docs/previews/`.
+
+## 0.2.0 — termcn-themed Python build (see the v0.2.0-python tag)
+- termcn design language ported to rich: 17 themes, badges/alerts/tool
+  call/approval/model selector/token usage/diff view, Zen provider fixes, test
+  suite.
+
+## 0.1.0 — initial release (Python)
 - Interactive REPL, streaming markdown, 8 tools, human-in-the-loop approval,
   /models picker, session save/resume, OpenCode Zen defaults.

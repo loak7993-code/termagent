@@ -1,0 +1,38 @@
+{
+  "name": "termagent",
+  "version": "1.0.0",
+  "description": "A terminal AI coding agent for Termux (and any POSIX shell). Ink + termcn UI.",
+  "type": "module",
+  "bin": {
+    "termagent": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "tsx src/cli.tsx",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "cli-spinners": "^2.9.2",
+    "ink": "^6.8.0",
+    "react": "^19.0.0",
+    "string-width": "^8.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.0.0",
+    "ink-testing-library": "^4.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
