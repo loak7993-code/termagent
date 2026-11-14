@@ -302,6 +302,11 @@ main() {
     fi
   fi
   log "building release (jobs=$jobs, this takes a few minutes on a phone)"
+  if [ "$TERMUX" = "1" ]; then
+    # Phones have less RAM than laptops; thin LTO and one codegen unit can OOM.
+    export CARGO_PROFILE_RELEASE_LTO=false
+    export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16
+  fi
   run env CARGO_BUILD_JOBS="$jobs" "$CARGO" build --release --locked --bin termagent --manifest-path "$ROOT/Cargo.toml"
 
   if [ "$DRY_RUN" = "1" ]; then

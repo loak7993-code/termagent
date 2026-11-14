@@ -76,7 +76,8 @@ What it does:
 Useful environment variables: `TERMAGENT_PREFIX`, `TERMAGENT_SRC` (existing source tree),
 `TERMAGENT_JOBS` (build parallelism, for example `TERMAGENT_JOBS=2`).
 
-On a phone the build takes several minutes and can need `TERMAGENT_JOBS=1` on low-memory
+On a phone the build takes several minutes. The installer disables thin LTO and raises
+codegen units on Termux to keep memory use down; set `TERMAGENT_JOBS=1` on low-memory
 devices. Node is not needed: the browser client is committed and embedded by the Rust
 build.
 
