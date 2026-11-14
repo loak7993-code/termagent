@@ -42,25 +42,55 @@ current and only models that support tool calling are offered.
 
 ## Install
 
-Requirements: Rust stable (tested with 1.99). Node 20+ is only needed to rebuild the web
-client; the shipped binary embeds it.
+One command, no clone. It installs the toolchain when missing, downloads the source,
+builds, and installs the binary:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/loak7993-code/termagent/main/install.sh | bash
+```
+
+From a clone:
 
 ```sh
 git clone https://github.com/loak7993-code/termagent
 cd termagent
-
-# option 1: install with cargo (verified)
-cargo install --path crates/cli --locked
-
-# option 2: install to ~/.local/bin, no sudo
 ./install.sh
-
-# option 3: build and run in place
-cargo build --release
-./target/release/termagent
 ```
 
-On Termux, install Rust first (`pkg install rust git`), then use the same commands.
+What it does:
+
+- Termux: `pkg install rust clang make`, then builds. No root.
+- Debian, Ubuntu, Fedora, Arch: installs build packages and rustup with sudo if needed.
+- macOS: uses the Xcode command line tools and rustup.
+- Downloads the source tarball when the script is piped.
+- Installs to `$PREFIX/bin` on Termux, `~/.local/bin` elsewhere.
+- Verifies the binary with `termagent --version`.
+
+| Option | Purpose |
+|---|---|
+| `--prefix DIR` | install into `DIR/bin` |
+| `--add-path` | append the install directory to your shell rc |
+| `--no-bootstrap` | fail instead of installing a toolchain |
+| `--dry-run` | print the plan without changing anything |
+
+Useful environment variables: `TERMAGENT_PREFIX`, `TERMAGENT_SRC` (existing source tree),
+`TERMAGENT_JOBS` (build parallelism, for example `TERMAGENT_JOBS=2`).
+
+On a phone the build takes several minutes and can need `TERMAGENT_JOBS=1` on low-memory
+devices. Node is not needed: the browser client is committed and embedded by the Rust
+build.
+
+Manual build, if you already have Rust stable (tested with 1.99):
+
+```sh
+cargo build --release
+mkdir -p ~/.local/bin
+cp target/release/termagent ~/.local/bin/termagent
+chmod 755 ~/.local/bin/termagent
+
+# or
+cargo install --path crates/cli --locked
+```
 
 First run opens the onboarding flow. Pick a provider, paste a key (or export the
 provider's variable first), pick a model, pick effort, press enter. Nothing else is
