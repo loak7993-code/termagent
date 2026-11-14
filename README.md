@@ -1,114 +1,231 @@
 # termagent
 
 A coding agent that runs in your terminal and your browser. One Rust binary, one
-workspace, no root. It reads files, edits them, searches, runs commands with your
-approval, and keeps every session on disk.
+workspace, no root.
 
 ```
 termagent           native terminal UI
 termagent --web     local chat UI on http://127.0.0.1:6033
 ```
 
-On first run it asks for a provider, a key, a model, and a reasoning level. Providers
-and models come from [models.dev](https://models.dev), so the list is current and only
-models that support tool calling are offered. Keys stay on the machine.
+It reads files, edits them, searches, runs commands with your approval, and keeps every
+session on disk. On first run it asks for a provider, a key, a model, and a reasoning
+level. Providers and models come from [models.dev](https://models.dev), so the list is
+current and only models that support tool calling are offered.
 
-![onboarding](docs/screenshots/onboarding.png)
+![termagent TUI](docs/screenshots/tui.png)
 
-## Features
+## What it does
 
-- Native TUI on ratatui: streaming replies, tool cards, approval modal, model picker,
-  session picker, eight themes, ASCII fallback.
-- Browser chat served by the binary: session sidebar, searchable model chooser,
-  inline approvals, token usage, mobile layout.
-- Providers and models from models.dev: 309 providers and 7,958 tool-capable models
-  in the bundled snapshot, refreshed on demand and cached for 24 hours.
-- Three protocol adapters: OpenAI-compatible chat completions, Anthropic Messages,
-  and Google Gemini. Every other provider in the registry speaks the OpenAI shape.
-- Per-provider API keys, stored with mode 0600, or read from the provider's
-  environment variable. One provider's key never authenticates another.
-- Effort control: auto, low, medium, high, max. Auto picks a level per message and
-  each protocol receives it in its own field (`reasoning_effort`, thinking budget,
-  `thinkingBudget`).
+- Native terminal UI: streaming replies, tool cards, approvals, model and session
+  pickers, eight themes.
+- Local browser UI: session sidebar, searchable model chooser, inline approvals, token
+  usage, mobile layout.
+- 309 providers and 7,958 tool-capable models in the bundled snapshot. Refresh from
+  models.dev at any time.
+- OpenAI-compatible, Anthropic, and Gemini APIs behind one agent loop.
+- Per-provider keys, mode 0600, or the provider's environment variable.
+- Effort control with an automatic per-message default.
 - Tools: `read`, `write`, `edit`, `ls`, `glob`, `grep`, `bash`, `todo`, `webfetch`.
-- Sessions as JSONL, resume by id, rename, delete, token totals.
-- Runs in user space. Privilege escalation commands are refused, child processes
-  never inherit API keys, and file tools cannot leave the workspace.
+- Sessions as JSONL: resume, rename, delete, token totals.
+- Runs in user space. It never needs sudo and refuses privilege escalation.
 
-| Terminal | Model chooser |
+## See it
+
+| Web chat | Approval gate |
 |---|---|
-| ![tui](docs/screenshots/tui.png) | ![models](docs/screenshots/models.png) |
+| ![web chat](docs/screenshots/chat.png) | ![approval](docs/screenshots/approval.png) |
 
-| Chat | 
-|---|
-| ![chat](docs/screenshots/chat.png) |
+| First run | Model chooser |
+|---|---|
+| ![onboarding](docs/screenshots/onboarding.png) | ![models](docs/screenshots/models.png) |
 
-## Quick start
+## Install
 
-Requires Rust 1.85 or newer. Node 20+ is only needed to rebuild the web client.
+Requirements: Rust stable (tested with 1.99). Node 20+ is only needed to rebuild the web
+client; the shipped binary embeds it.
 
 ```sh
 git clone https://github.com/loak7993-code/termagent
 cd termagent
+
+# option 1: install with cargo (verified)
+cargo install --path crates/cli --locked
+
+# option 2: install to ~/.local/bin, no sudo
+./install.sh
+
+# option 3: build and run in place
 cargo build --release
 ./target/release/termagent
 ```
 
-First run opens the onboarding wizard. Pick a provider, paste a key (or export the
-provider's environment variable first), pick a model, pick effort, press enter.
+On Termux, install Rust first (`pkg install rust git`), then use the same commands.
 
-Install into your user path:
+First run opens the onboarding flow. Pick a provider, paste a key (or export the
+provider's variable first), pick a model, pick effort, press enter. Nothing else is
+required.
 
 ```sh
-./install.sh                 # installs to ~/.local/bin/termagent
-# or
-install -Dm755 target/release/termagent ~/.local/bin/termagent
+export ANTHROPIC_API_KEY=...   # or OPENAI_API_KEY, OPENROUTER_API_KEY, ...
+termagent
 ```
 
-On Termux: `pkg install rust git`, then the same build.
+## First run
 
-### Web mode
+The wizard has four fields:
+
+1. Provider. Search all 309 registry entries. Providers whose key is already in your
+   environment are marked, and popular ones are listed first.
+2. API key. Stored per provider in `config.json` with mode 0600. If the provider's
+   environment variable is set, you can leave this empty. Local endpoints need no key.
+3. Model. Only tool-capable models are shown, with context size, price, and reasoning
+   support.
+4. Effort: auto, low, medium, high, max.
+
+The same flow exists in the browser when no config is present.
+
+## Everyday use
+
+```sh
+termagent                                  # TUI in the current directory
+termagent -c <dir>                         # pick a workspace
+termagent "run the tests and fix the first failure"
+termagent -s <session-id>                  # resume a session
+termagent --web                            # browser UI, port 6033
+```
+
+| TUI key | Action |
+|---|---|
+| `enter` | send |
+| `esc` | stop the turn, clear input |
+| `ctrl+k` | model picker |
+| `ctrl+s` | sessions |
+| `ctrl+e` | cycle effort |
+| `ctrl+t` | cycle theme |
+| `up` / `down` / `page` | scroll |
+| `f1` | help |
+| `ctrl+c` | quit |
+
+Slash commands: `/model`, `/effort`, `/sessions`, `/new`, `/theme`, `/config`,
+`/tools`, `/cwd`, `/compact`, `/help`, `/exit`.
+
+When a tool changes state, termagent asks:
+
+```
+[y] approve   [a] always allow this session   [n] deny
+```
+
+High-risk commands (recursive deletes, disk writes, piping downloads into a shell) ask
+even with `--auto-approve`.
+
+## Web mode
 
 ```sh
 termagent --web              # http://127.0.0.1:6033
 termagent --web --port 6044
 ```
 
-The server binds loopback only. Every boot mints a new token, injected into the page,
-required by the API and the WebSocket. Nothing is exposed to the network.
-
-If the config is missing, the web UI opens the same onboarding flow. Keys never reach
-the browser; the page only sees masked state.
-
-### One-shot mode
+The server binds loopback only. Each boot mints a new token, injects it into the page,
+and requires it on the API and WebSocket. There is no CORS, no account system, and no
+network exposure. Keys never reach the browser; the page only sees masked state.
 
 ```sh
-termagent "run the tests and fix the first failure"
-termagent --auto-approve "list the rust files"    # high-risk commands still ask
+termagent web: http://127.0.0.1:6033  (local only, token protected)
 ```
+
+The browser UI has the same workspace as the process that started it. The session
+sidebar lists saved sessions; the model dialog searches every configured provider and
+loads a provider's models on demand (317 models for OpenRouter in about 30 ms).
+
+## Providers and models
+
+`models.dev` supplies provider metadata, environment variable names, model ids,
+reasoning options, context limits, and prices. The bundled snapshot makes the first run
+work offline. `termagent --refresh` or the Refresh button updates it and caches the
+result for 24 hours.
+
+| Protocol | Used by |
+|---|---|
+| OpenAI chat completions | OpenAI, OpenRouter, OpenCode, Groq, DeepSeek, Together-style gateways, and most registry entries |
+| Anthropic Messages | Anthropic |
+| Gemini generateContent | Google |
+
+Cloud IAM providers (Amazon Bedrock, Google Vertex, Azure, GitHub Copilot) are excluded
+because they cannot be set up with a single API key.
+
+A bare `--base-url` becomes a `Custom endpoint` provider using the OpenAI protocol.
+Local servers need no key. Start the local server first:
+
+```sh
+termagent -b http://127.0.0.1:1234/v1 -m qwen3-coder-30b   # LM Studio
+termagent -b http://127.0.0.1:11434/v1 -m llama3.1         # Ollama
+```
+
+### Reasoning effort
+
+| Level | OpenAI-compatible | Anthropic | Gemini |
+|---|---|---|---|
+| auto | chosen per message | chosen per message | chosen per message |
+| low | `reasoning_effort: low` | 1,024 thinking tokens | 1,024 budget |
+| medium | `reasoning_effort: medium` | 4,096 | 4,096 |
+| high | `reasoning_effort: high` | 16,384 | 16,384 |
+| max | `reasoning_effort: max` | 32,768 | 32,768 |
+
+Auto promotes a message to high when it contains code, task verbs (refactor, debug,
+test, review), more than 400 characters, or after two tool rounds. Short requests stay
+low. The resolved level is visible as `Auto → High`.
+
+## Tools and approvals
+
+| Tool | What it does | Risk |
+|---|---|---|
+| `read` | numbered lines, offset and limit, binary detection | low |
+| `ls` | directory listing, directories first | low |
+| `glob` | find files by pattern inside the workspace | low |
+| `grep` | regex search, path and line numbers | low |
+| `todo` | task list for multi-step work | low |
+| `write` | create or overwrite a file, creates parents | medium |
+| `edit` | exact replacement, unique match required | medium |
+| `bash` | shell command in the workspace, 120 s limit | medium or high |
+| `webfetch` | HTTP(S) fetch, HTML reduced to text | medium |
+
+Shell output is capped at 60k characters. Commands run with a scrubbed environment:
+API keys, cloud credentials, and SSH agent sockets are removed.
+
+## Safety
+
+- No privilege escalation. `sudo`, `su`, `doas`, `pkexec`, and `run0` are refused before
+  execution. termagent does not need root and never escalates the tools it runs.
+- File tools resolve every path inside the workspace. `..` escapes and symlinks that
+  point outside are rejected, including symlinked parents.
+- Medium and high risk tools ask first. `--auto-approve` skips medium risk; high risk
+  always asks.
+- Destructive commands are classified high risk: disk writes, recursive root deletes,
+  filesystem formatting, piping downloads into a shell, forced resets and pushes.
+- Child processes never inherit `*_API_KEY`, `*_TOKEN`, `*SECRET*`, `*PASSWORD*`,
+  `AWS_*`, `AZURE_*`, `GOOGLE_APPLICATION*`, or `SSH_AUTH_SOCK`.
+- Keys are never written to session files, logs, pages, or WebSocket frames.
+- No telemetry. Requests go only to the provider you configured.
 
 ## CLI
 
 | Flag | Purpose |
 |---|---|
 | `--web` | serve the browser UI instead of the TUI |
-| `--port <n>` | web port, 1024-65535, default 6033 |
-| `--onboard` | force the provider/key/model wizard |
-| `-m, --model <id>` | override the model for this run |
+| `--port <n>` | web port, 1024 to 65535, default 6033 |
+| `--onboard` | force the provider, key, model, effort wizard |
 | `--provider <id>` | override the provider |
+| `-m, --model <id>` | override the model |
 | `-b, --base-url <url>` | custom OpenAI-compatible endpoint |
-| `-k, --api-key <key>` | key for this run (prefer environment variables) |
+| `-k, --api-key <key>` | key for this run; prefer environment variables |
 | `--effort <level>` | auto, low, medium, high, max |
 | `-c, --cwd <dir>` | workspace directory |
 | `-s, --session <id>` | resume a stored session |
-| `-a, --auto-approve` | skip medium-risk approvals (high risk still asks) |
+| `-a, --auto-approve` | skip medium-risk approvals |
 | `--list-models` | print configured providers and their first models |
 | `--refresh` | refresh the models.dev registry |
-
-TUI keys: `enter` send, `esc` stop, `ctrl+k` models, `ctrl+s` sessions, `ctrl+e`
-effort, `ctrl+t` theme, `ctrl+c` quit, `f1` help. Slash commands: `/model`,
-`/effort`, `/sessions`, `/new`, `/theme`, `/config`, `/tools`, `/cwd`, `/help`,
-`/exit`.
+| `--version`, `--help` | version and usage |
 
 ## Configuration
 
@@ -117,8 +234,11 @@ Files live in `$TERMAGENT_CONFIG_DIR`, default `~/.config/termagent`:
 | Path | Contents |
 |---|---|
 | `config.json` | provider, model, effort, per-provider keys, theme, safety flags. Mode 0600. |
-| `registry.json` | models.dev cache, refreshed every 24 hours or with `--refresh` |
+| `registry.json` | models.dev cache |
 | `sessions/<id>.jsonl` | one event log per session |
+
+`config.json` fields: `provider`, `model`, `effort`, `keys`, `api_key` (legacy), `base_url`,
+`system`, `max_turns`, `auto_approve`, `theme`.
 
 | Environment variable | Purpose |
 |---|---|
@@ -128,56 +248,16 @@ Files live in `$TERMAGENT_CONFIG_DIR`, default `~/.config/termagent`:
 | `TERMAGENT_BASE_URL` | custom API base URL |
 | `TERMAGENT_API_KEY` | key for the active provider |
 | `TERMAGENT_EFFORT` | auto, low, medium, high, max |
-| `TERMAGENT_THEME` | TUI theme name |
+| `TERMAGENT_THEME` | TUI theme |
 | `TERMAGENT_AUTO_APPROVE` | `1` enables auto-approve |
 | `TERMAGENT_ASCII` | `1` uses ASCII borders and symbols |
 
-Every provider's own variable from models.dev is honored, for example
-`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `GROQ_API_KEY`.
+Provider variables from models.dev are honored directly, for example
+`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `GROQ_API_KEY`,
+`DEEPSEEK_API_KEY`.
 
-Custom local endpoints work without a key when the base URL points at localhost
-(LM Studio, Ollama, llama.cpp). Pass `-b http://127.0.0.1:1234/v1 -m <model>`.
-
-## Safety model
-
-- No privilege escalation. `sudo`, `su`, `doas`, `pkexec`, and `run0` are refused
-  before a command runs. termagent itself never needs root.
-- Every file path is resolved inside the workspace; `..` escapes and symlinks that
-  point outside are rejected.
-- Tools that change state ask first: `write`, `edit`, `bash`, `webfetch`. Destructive
-  commands such as `rm -rf /`, `mkfs`, or `curl | sh` are classified high risk and ask
-  even with `--auto-approve`.
-- Child processes start without `*_API_KEY`, `*_TOKEN`, `*SECRET*`, `*PASSWORD*`,
-  `AWS_*`, `AZURE_*`, `GOOGLE_APPLICATION*`, or `SSH_AUTH_SOCK`.
-- Shell commands time out after 120 seconds and output is capped at 60k characters.
-- The web server is loopback only, token gated, origin checked, and sends no CORS
-  headers. Keys are never serialized into pages, WebSocket frames, or session files.
-- No telemetry. Requests go only to the provider you configured.
-
-## Build, test, develop
-
-```sh
-cargo build --release
-cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings
-cargo fmt --check
-```
-
-The web client builds separately and is embedded into the binary:
-
-```sh
-cd web
-npm ci
-npm run build          # writes web/dist, no source maps
-cd ..
-cargo build --release  # re-embeds web/dist
-```
-
-Regenerate the offline registry snapshot after a models.dev refresh:
-
-```sh
-node scripts/gen_registry.mjs            # fetches models.dev when no local snapshot
-```
+Themes: `opencode`, `tokyo-night`, `catppuccin`, `gruvbox`, `nord`, `vercel`,
+`rosepine`, `amoled`.
 
 ## Architecture
 
@@ -185,34 +265,59 @@ node scripts/gen_registry.mjs            # fetches models.dev when no local snap
 crates/core        agent loop, providers, tools, config, registry, sessions, safety
   providers/       openai.rs, anthropic.rs, gemini.rs, sse.rs
   tools/           read, write, edit, ls, glob, grep, bash, todo, webfetch
-crates/tui         ratatui screens, key handling, worker thread, themes
+crates/tui         ratatui screens, key handling, worker task, themes
 crates/web         axum server, REST API, WebSocket protocol, embedded assets
 crates/cli         binary, flags, one-shot mode
-web                Vite + React client (Tailwind v4, shadcn, @aicss/react)
+web                Vite + React 19 client (Tailwind v4, shadcn, @aicss/react)
 scripts            registry snapshot generator
-docs/screenshots   verified captures at 390, 768, 1440
+docs/screenshots   captures at 390, 768, and 1440
 ```
 
-The TUI owns an agent task on a two-thread Tokio runtime and exchanges events over a
-channel. The web server runs one conversation per process and broadcasts events over a
-WebSocket. Both use the same `Agent`, tools, session log, and provider adapters.
+The TUI owns an agent task on a two-thread Tokio runtime and exchanges events over
+channels. The web server runs one conversation per process and broadcasts events over a
+WebSocket. Both use the same agent loop, tools, session log, and provider adapters.
+
+## Development
+
+```sh
+cargo build --release
+cargo test --workspace          # 58 tests, no network or keys
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt --check
+```
+
+The web client builds separately and is embedded by the Rust build:
+
+```sh
+cd web
+npm ci
+npm run build                   # writes web/dist, no source maps
+cd ..
+cargo build --release           # re-embeds web/dist
+```
+
+Regenerate the offline registry snapshot:
+
+```sh
+node scripts/gen_registry.mjs   # uses models.dev when no local snapshot exists
+```
+
+The design and implementation notes live in `docs/superpowers/`.
 
 ## Known limitations
 
 - One conversation per `--web` process. Multiple tabs share it.
-- No context compaction; `/new` starts a clean window, `max_turns` caps tool rounds.
-- Tool arguments stream only when a call completes, so the tool card appears after the
-  model finishes composing it.
-- Terminal composer is single-line; long prompts scroll horizontally.
-- Bedrock, Vertex, Azure, and Copilot are excluded from onboarding because they need
-  cloud IAM rather than one API key.
-- The bundled registry snapshot is a point in time; use `--refresh` or the Refresh
-  button for the newest models.
+- No context compaction. `/new` starts a clean window, `max_turns` caps tool rounds.
+- Tool arguments appear when a call completes, not while the model is composing it.
+- The terminal composer is single line; long prompts scroll horizontally.
+- Bedrock, Vertex, Azure, and Copilot are excluded from onboarding.
+- The bundled registry is a point in time. Use `--refresh` for the newest models.
 - Linux and Termux are verified. macOS is expected to work. Windows is untested.
-- Screenshots in this README come from a scripted local provider used for UI
-  verification; no third-party model keys were used.
+- No MCP, image, audio, or embedding support.
+- Screenshots were captured against a scripted local provider for UI verification. No
+  third-party model keys were used.
 
 ## License
 
-MIT. Built with ratatui, axum, and Tokio. Web client uses shadcn components and
+MIT. Built with ratatui, axum, and Tokio. The web client uses shadcn components and
 `@aicss/react`. Registry data from models.dev.

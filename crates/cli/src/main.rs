@@ -3,6 +3,7 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use clap::Parser;
+use termagent_core::registry::{Model, Protocol, Provider};
 use termagent_core::session::Session;
 use termagent_core::tools::ApproveFn;
 use termagent_core::types::AgentEvent;
@@ -133,6 +134,35 @@ fn run(cli: Cli) -> termagent_core::Result<()> {
         return Err(termagent_core::Error::Registry(
             "no providers available; run termagent --refresh".into(),
         ));
+    }
+
+    // A bare --base-url gets a synthetic OpenAI-compatible provider so local
+    // servers and gateways work without picking a registry entry first.
+    if let Some(base) = cfg.base_url.clone() {
+        if registry.provider(&cfg.provider).is_none() {
+            if cfg.model.is_empty() {
+                cfg.model = "default".into();
+            }
+            registry.providers.retain(|p| p.id != "custom");
+            registry.providers.push(Provider {
+                id: "custom".into(),
+                name: "Custom endpoint".into(),
+                env: Vec::new(),
+                api: base,
+                protocol: Protocol::OpenAi,
+                models: vec![Model {
+                    id: cfg.model.clone(),
+                    name: cfg.model.clone(),
+                    reasoning: false,
+                    efforts: Vec::new(),
+                    tool_call: true,
+                    context: 0,
+                    cost_in: 0.0,
+                    cost_out: 0.0,
+                }],
+            });
+            cfg.provider = "custom".into();
+        }
     }
 
     if cli.list_models {

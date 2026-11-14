@@ -75,3 +75,24 @@ fn invalid_effort_is_rejected() {
         .failure()
         .stderr(predicate::str::contains("unknown effort"));
 }
+
+#[test]
+fn base_url_creates_a_custom_provider() {
+    let dir = tempfile::tempdir().unwrap();
+    Command::cargo_bin("termagent")
+        .unwrap()
+        .env("TERMAGENT_CONFIG_DIR", dir.path())
+        .args([
+            "--base-url",
+            "http://127.0.0.1:6099/v1",
+            "-m",
+            "test-model",
+            "-k",
+            "local",
+            "--list-models",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Custom endpoint (custom)"))
+        .stdout(predicate::str::contains("custom/test-model"));
+}
