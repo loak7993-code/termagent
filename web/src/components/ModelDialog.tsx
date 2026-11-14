@@ -88,7 +88,7 @@ export function ModelDialog({
   }, [providerQuery, snapshot.providers, snapshot.provider]);
 
   const provider = snapshot.providers.find((p) => p.id === providerId);
-  const providerModels = models[providerId] ?? [];
+  const providerModels = useMemo(() => models[providerId] ?? [], [models, providerId]);
   const filteredModels = useMemo(() => {
     const needle = modelQuery.trim().toLowerCase();
     if (!needle) return providerModels;

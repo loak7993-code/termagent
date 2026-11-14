@@ -134,6 +134,7 @@ async fn handle_client(state: &State, raw: &str) {
                     *st.totals.write().await = totals;
                 }
                 if let Some(meta) = meta {
+                    *st.session.write().await = Some(meta.clone());
                     st.broadcast(json!({"type": "session", "session": crate::state::session_payload(&meta, None)}));
                 }
                 match result {

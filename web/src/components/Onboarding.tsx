@@ -16,7 +16,6 @@ import { Input } from "@/components/ui/input";
 import {
   api,
   compact,
-  price,
   orderProviders,
   POPULAR,
   type Effort,
@@ -78,7 +77,7 @@ export function Onboarding({
   const [refreshing, setRefreshing] = useState(false);
 
   const provider = snapshot.providers.find((entry) => entry.id === providerId);
-  const providerModels = models[providerId] ?? [];
+  const providerModels = useMemo(() => models[providerId] ?? [], [models, providerId]);
 
   const load = useCallback(async (id: string) => {
     setLoading(true);

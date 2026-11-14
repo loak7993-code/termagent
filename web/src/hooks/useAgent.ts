@@ -105,11 +105,7 @@ export function useAgent(): AgentApi {
   const [banner, setBanner] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const snapshotRef = useRef<Snapshot | null>(null);
-  snapshotRef.current = snapshot;
   const wsRef = useRef<WebSocket | null>(null);
-  const timerRef = useRef<number | null>(null);
-  const attemptRef = useRef(0);
   const unmounted = useRef(false);
   const buffered = useRef({ text: "", reasoning: "" });
   const rafRef = useRef<number | null>(null);
@@ -265,55 +261,64 @@ export function useAgent(): AgentApi {
               : prev,
           );
           break;
-        case "error":
-          setBanner(event.message ?? "something went wrong");
+        case "error": {
+          const message = event.message ?? "something went wrong";
+          setBanner(message);
           void refresh();
           setBusy(false);
           setStreaming(false);
           setPending(null);
-          setItems((prev) => [
-            ...prev.map(closeStreaming),
-            { kind: "error", id: uid(), text: event.message ?? "request failed" },
-          ]);
+          setItems((prev) => {
+            const last = prev[prev.length - 1];
+            if (last && last.kind === "error" && last.text === message) return prev;
+            return [
+              ...prev.map(closeStreaming),
+              { kind: "error", id: uid(), text: message },
+            ];
+          });
           break;
+        }
       }
     },
     [flush, refresh, schedule],
   );
 
-  const connect = useCallback(() => {
-    if (unmounted.current) return;
-    const scheme = location.protocol === "https:" ? "wss" : "ws";
-    const socket = new WebSocket(
-      `${scheme}://${location.host}/ws?token=${encodeURIComponent(window.__TERMAGENT__?.token ?? "")}`,
-    );
-    wsRef.current = socket;
-    socket.onopen = () => {
-      attemptRef.current = 0;
-      setConnected(true);
-    };
-    socket.onmessage = (message) => {
-      try {
-        handle(JSON.parse(message.data as string) as WsEvent);
-      } catch {
-        setBanner("received a malformed message");
-      }
-    };
-    socket.onclose = () => {
-      setConnected(false);
-      if (unmounted.current) return;
-      const delay = Math.min(500 * 2 ** attemptRef.current, 5000);
-      attemptRef.current += 1;
-      timerRef.current = window.setTimeout(connect, delay);
-    };
-    socket.onerror = () => {
-      socket.close();
-    };
-  }, [handle]);
-
   useEffect(() => {
     unmounted.current = false;
     let cancelled = false;
+    let attempt = 0;
+    let timer: number | null = null;
+
+    const open = () => {
+      if (unmounted.current) return;
+      const scheme = location.protocol === "https:" ? "wss" : "ws";
+      const socket = new WebSocket(
+        `${scheme}://${location.host}/ws?token=${encodeURIComponent(window.__TERMAGENT__?.token ?? "")}`,
+      );
+      wsRef.current = socket;
+      socket.onopen = () => {
+        attempt = 0;
+        setConnected(true);
+      };
+      socket.onmessage = (message) => {
+        try {
+          handle(JSON.parse(message.data as string) as WsEvent);
+        } catch {
+          setBanner("received a malformed message");
+        }
+      };
+      socket.onclose = () => {
+        setConnected(false);
+        if (unmounted.current) return;
+        const delay = Math.min(500 * 2 ** attempt, 5000);
+        attempt += 1;
+        timer = window.setTimeout(open, delay);
+      };
+      socket.onerror = () => {
+        socket.close();
+      };
+    };
+
     api<Snapshot>("/api/state")
       .then((state) => {
         if (cancelled) return;
@@ -331,16 +336,17 @@ export function useAgent(): AgentApi {
             : "cannot reach termagent. Start it with `termagent --web`.",
         );
       });
-    connect();
+    open();
+
     return () => {
       cancelled = true;
       unmounted.current = true;
-      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+      if (timer !== null) window.clearTimeout(timer);
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       wsRef.current?.close();
       wsRef.current = null;
     };
-  }, [connect]);
+  }, [handle]);
 
   const sendJson = useCallback((payload: unknown) => {
     const socket = wsRef.current;
@@ -392,16 +398,15 @@ export function useAgent(): AgentApi {
 
   const setEffort = useCallback(
     (effort: Effort) => {
-      const state = snapshotRef.current;
-      if (!state) return;
+      if (!snapshot) return;
       sendJson({
         type: "set_model",
-        provider: state.provider,
-        model: state.model,
+        provider: snapshot.provider,
+        model: snapshot.model,
         effort,
       });
     },
-    [sendJson],
+    [sendJson, snapshot],
   );
 
   const newSession = useCallback(() => {

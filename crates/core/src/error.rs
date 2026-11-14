@@ -26,9 +26,30 @@ impl Error {
     pub fn api(status: u16, body: impl Into<String>) -> Self {
         Error::Api {
             status,
-            message: truncate_error(&body.into()),
+            message: friendly_error(&body.into()),
         }
     }
+}
+
+/// Pull the human message out of provider JSON before truncating.
+fn friendly_error(body: &str) -> String {
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(body) {
+        let message = value
+            .pointer("/error/message")
+            .or_else(|| value.get("message"))
+            .and_then(serde_json::Value::as_str);
+        if let Some(message) = message {
+            let kind = value
+                .pointer("/error/type")
+                .or_else(|| value.pointer("/error/code"))
+                .and_then(serde_json::Value::as_str);
+            return match kind {
+                Some(kind) => format!("{kind}: {message}"),
+                None => message.to_string(),
+            };
+        }
+    }
+    truncate_error(body)
 }
 
 fn truncate_error(body: &str) -> String {
