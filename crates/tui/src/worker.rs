@@ -66,7 +66,7 @@ pub enum TuiEvent {
 }
 
 pub enum Command {
-    Start(Config),
+    Start(Config, Option<String>),
     Turn(String, CancellationToken),
     Reconfigure,
     NewSession,
@@ -98,13 +98,16 @@ impl Worker {
         let _ = self.ui.send(TuiEvent::Session(agent.session.meta.clone()));
     }
 
-    fn start(&mut self) -> Result<(), Error> {
-        let session = Session::new(
-            &self.cwd,
-            &self.cfg.provider,
-            &self.cfg.model,
-            self.cfg.effort,
-        )?;
+    fn start(&mut self, session_id: Option<String>) -> Result<(), Error> {
+        let session = match session_id {
+            Some(id) => Session::open(&id)?,
+            None => Session::new(
+                &self.cwd,
+                &self.cfg.provider,
+                &self.cfg.model,
+                self.cfg.effort,
+            )?,
+        };
         let agent = self.agent_for(session)?;
         self.announce(&agent);
         self.agent = Some(agent);
@@ -112,7 +115,7 @@ impl Worker {
     }
 
     pub async fn run(mut self, mut rx: UnboundedReceiver<Command>) {
-        if let Err(e) = self.start() {
+        if let Err(e) = self.start(None) {
             let _ = self.ui.send(TuiEvent::Info(e.to_string()));
             let _ = self.events.send(AgentEvent::Error(e.to_string()));
         }
@@ -126,9 +129,9 @@ impl Worker {
 
     async fn handle(&mut self, cmd: Command) -> Result<(), Error> {
         match cmd {
-            Command::Start(cfg) => {
+            Command::Start(cfg, session_id) => {
                 self.cfg = cfg;
-                self.start()
+                self.start(session_id)
             }
             Command::Turn(text, cancel) => {
                 let Some(agent) = self.agent.as_mut() else {
@@ -151,7 +154,7 @@ impl Worker {
                 }
                 Ok(())
             }
-            Command::NewSession => self.start(),
+            Command::NewSession => self.start(None),
             Command::LoadSession(id) => {
                 let session = Session::open(&id)?;
                 let agent = self.agent_for(session)?;

@@ -2,7 +2,7 @@ use std::sync::mpsc::Receiver;
 use std::time::Instant;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use termagent_core::session::{self, SessionMeta};
+use termagent_core::session::{self, Session, SessionMeta, Stored};
 use termagent_core::types::{AgentEvent, ApprovalRequest, Effort, Risk, Usage};
 use termagent_core::{Config, Registry};
 use tokio::sync::mpsc::UnboundedSender;
@@ -139,6 +139,7 @@ pub struct App {
     pub history: Vec<String>,
     pub history_idx: Option<usize>,
     pub theme_names: Vec<&'static str>,
+    initial_session: Option<String>,
 }
 
 impl App {
@@ -149,6 +150,7 @@ impl App {
         approvals: Approvals,
         events: Receiver<TuiEvent>,
         force_onboarding: bool,
+        initial_session: Option<String>,
     ) -> App {
         let palette = theme::get(&cfg.theme);
         let chat = ChatState::new(cfg.effort);
@@ -181,6 +183,7 @@ impl App {
             history: Vec::new(),
             history_idx: None,
             theme_names: theme::names(),
+            initial_session,
         };
         if configured {
             app.start_chat();
@@ -191,7 +194,10 @@ impl App {
     fn start_chat(&mut self) {
         self.chat = ChatState::new(self.cfg.effort);
         self.screen = Screen::Chat;
-        let _ = self.commands.send(Command::Start(self.cfg.clone()));
+        let session = self.initial_session.take();
+        let _ = self
+            .commands
+            .send(Command::Start(self.cfg.clone(), session));
     }
 
     pub fn poll_events(&mut self) {
@@ -204,12 +210,77 @@ impl App {
         match ev {
             TuiEvent::Agent(agent) => self.handle_agent_event(agent),
             TuiEvent::Session(meta) => {
-                self.chat.session = Some(meta);
+                let changed = self
+                    .chat
+                    .session
+                    .as_ref()
+                    .map(|current| current.id != meta.id)
+                    .unwrap_or(true);
+                self.chat.session = Some(meta.clone());
+                if changed || self.chat.items.is_empty() {
+                    self.hydrate(&meta);
+                }
             }
             TuiEvent::Info(msg) => {
                 self.chat.message(Item::Info(msg));
             }
         }
+    }
+
+    fn hydrate(&mut self, meta: &SessionMeta) {
+        let Ok(session) = Session::open(&meta.id) else {
+            return;
+        };
+        let events = session.events;
+        if events.is_empty() {
+            return;
+        }
+        self.chat.items.clear();
+        self.chat.live = Live::None;
+        self.chat.usage = termagent_core::types::Usage::default();
+        for event in events {
+            match event {
+                Stored::User { text } => self.chat.items.push(Item::User(text)),
+                Stored::Assistant {
+                    text,
+                    reasoning,
+                    tool_calls,
+                } => {
+                    if let Some(reasoning) = reasoning {
+                        if !reasoning.trim().is_empty() {
+                            self.chat.items.push(Item::Reasoning(reasoning));
+                        }
+                    }
+                    if !text.trim().is_empty() {
+                        self.chat.items.push(Item::Assistant(text));
+                    }
+                    let _ = tool_calls;
+                }
+                Stored::Tool {
+                    id,
+                    name,
+                    args,
+                    output,
+                    ok,
+                    risk,
+                } => self.chat.items.push(Item::Tool(ToolCard {
+                    id,
+                    name,
+                    summary: termagent_core::safety::summarize_args(&args),
+                    risk,
+                    running: false,
+                    ok,
+                    output,
+                    elapsed_ms: 0,
+                })),
+                Stored::Usage { input, output } => {
+                    self.chat.usage.input += input;
+                    self.chat.usage.output += output;
+                }
+                Stored::Meta(_) | Stored::Title { .. } => {}
+            }
+        }
+        self.chat.scroll_back = 0;
     }
 
     fn handle_agent_event(&mut self, ev: AgentEvent) {

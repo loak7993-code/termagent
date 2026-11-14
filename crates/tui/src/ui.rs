@@ -304,7 +304,11 @@ fn feed_lines(chat: &ChatState, p: &Palette, width: usize, tick: usize) -> Vec<L
                     )
                 } else if card.ok {
                     Span::styled(
-                        format!("{} {}ms", sym("✓", "ok"), card.elapsed_ms),
+                        if card.elapsed_ms > 0 {
+                            format!("{} {}ms", sym("✓", "ok"), card.elapsed_ms)
+                        } else {
+                            sym("✓", "ok").to_string()
+                        },
                         Style::default().fg(p.ok),
                     )
                 } else {

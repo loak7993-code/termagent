@@ -122,11 +122,11 @@ fn run(cli: Cli) -> termagent_core::Result<()> {
             .enable_all()
             .build()?;
         registry = runtime.block_on(Registry::refresh())?;
-        println!(
+        print_line(&format!(
             "models.dev: {} providers, {} models",
             registry.providers.len(),
             registry.total_models()
-        );
+        ));
         return Ok(());
     }
     if registry.providers.is_empty() {
@@ -138,23 +138,23 @@ fn run(cli: Cli) -> termagent_core::Result<()> {
     if cli.list_models {
         let configured = registry.configured(&cfg);
         if configured.is_empty() {
-            println!("no provider configured yet; run `termagent --onboard`");
-            println!(
+            print_line("no provider configured yet; run `termagent --onboard`");
+            print_line(&format!(
                 "registry: {} providers, {} models",
                 registry.providers.len(),
                 registry.total_models()
-            );
+            ));
             return Ok(());
         }
         for provider in configured {
-            println!(
+            print_line(&format!(
                 "{} ({}) · {} models",
                 provider.name,
                 provider.id,
                 provider.models.len()
-            );
+            ));
             for model in provider.models.iter().take(20) {
-                println!("  {}/{}", provider.id, model.id);
+                print_line(&format!("  {}/{}", provider.id, model.id));
             }
         }
         return Ok(());
@@ -181,7 +181,7 @@ fn run(cli: Cli) -> termagent_core::Result<()> {
             cli.auto_approve,
         );
     }
-    termagent_tui::run(cfg, registry, cwd)
+    termagent_tui::run(cfg, registry, cwd, cli.session)
 }
 
 fn one_shot(
@@ -210,8 +210,9 @@ fn one_shot(
                 match ev {
                     AgentEvent::Text(text) => {
                         use std::io::Write;
-                        print!("{text}");
-                        let _ = std::io::stdout().flush();
+                        let mut out = std::io::stdout();
+                        let _ = out.write_all(text.as_bytes());
+                        let _ = out.flush();
                     }
                     AgentEvent::ToolStart { name, args, .. } => {
                         eprintln!(
@@ -241,7 +242,14 @@ fn one_shot(
         let result = agent.run_turn(&prompt, CancellationToken::new()).await;
         drop(agent);
         let _ = printer.await;
-        println!();
+        print_line("");
         result
     })
+}
+
+/// Writer that tolerates a closed pipe (`termagent --list-models | head`).
+fn print_line(line: &str) {
+    use std::io::Write;
+    let mut out = std::io::stdout();
+    let _ = writeln!(out, "{line}");
 }

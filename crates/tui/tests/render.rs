@@ -15,7 +15,15 @@ fn app(cfg: Config) -> App {
     let registry = Registry::snapshot().unwrap();
     let (cmd_tx, _cmd_rx) = tokio::sync::mpsc::unbounded_channel::<Command>();
     let (_ui_tx, ui_rx) = channel::<TuiEvent>();
-    App::new(cfg, registry, cmd_tx, Approvals::default(), ui_rx, false)
+    App::new(
+        cfg,
+        registry,
+        cmd_tx,
+        Approvals::default(),
+        ui_rx,
+        false,
+        None,
+    )
 }
 
 fn render(app: &App, width: u16, height: u16) -> String {

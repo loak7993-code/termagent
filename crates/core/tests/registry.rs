@@ -194,3 +194,61 @@ fn sessions_rename_and_delete() {
     assert!(!termagent_core::session::list().iter().any(|m| m.id == id));
     assert!(termagent_core::session::Session::open("../../etc/passwd").is_err());
 }
+
+#[test]
+fn session_replays_history_and_title() {
+    let _ = common::test_config_dir();
+    let work = tempfile::tempdir().unwrap();
+    let mut session = termagent_core::session::Session::new(
+        work.path(),
+        "anthropic",
+        "claude-fable-5-2",
+        Effort::Auto,
+    )
+    .unwrap();
+    let id = session.meta.id.clone();
+    use termagent_core::session::Stored;
+    use termagent_core::types::Risk;
+    session
+        .append(&Stored::User {
+            text: "read main.rs".into(),
+        })
+        .unwrap();
+    session
+        .append(&Stored::Assistant {
+            text: "Sure.".into(),
+            reasoning: Some("plan".into()),
+            tool_calls: vec![],
+        })
+        .unwrap();
+    session
+        .append(&Stored::Tool {
+            id: "t1".into(),
+            name: "read".into(),
+            args: serde_json::json!({"path": "main.rs"}),
+            output: "fn main() {}".into(),
+            ok: true,
+            risk: Risk::Low,
+        })
+        .unwrap();
+    session
+        .append(&Stored::Usage {
+            input: 10,
+            output: 4,
+        })
+        .unwrap();
+    session.apply_title("read main.rs").unwrap();
+
+    let reopened = termagent_core::session::Session::open(&id).unwrap();
+    assert_eq!(reopened.meta.title, "read main.rs");
+    let messages = reopened.messages();
+    assert_eq!(messages.len(), 3);
+    assert!(messages[0]
+        .content
+        .as_deref()
+        .unwrap()
+        .contains("read main.rs"));
+    assert!(messages[1].reasoning.as_deref().unwrap().contains("plan"));
+    assert!(messages[2].content.as_deref().unwrap().contains("fn main"));
+    assert_eq!(reopened.totals.input, 10);
+}

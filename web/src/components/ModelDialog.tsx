@@ -112,8 +112,9 @@ export function ModelDialog({
           <div>
             <DialogTitle className="text-[15px]">Models</DialogTitle>
             <DialogDescription className="mono mt-0.5 text-[10.5px] text-faint">
-              {snapshot.registry.providers} providers · {snapshot.registry.models.toLocaleString()} models ·{" "}
-              {snapshot.registry.source}
+              {snapshot.registry.providers}{" "}
+              {snapshot.registry.providers === 1 ? "provider" : "providers"} ·{" "}
+              {snapshot.registry.models.toLocaleString()} models · {snapshot.registry.source}
             </DialogDescription>
           </div>
           <div className="flex items-center gap-2">
@@ -361,7 +362,12 @@ export function ModelDialog({
             </Button>
             <Button
               size="sm"
-              disabled={!draftModel}
+              disabled={!draftModel || Boolean(provider && !provider.keySet && !provider.local)}
+              title={
+                provider && !provider.keySet && !provider.local
+                  ? "Add a key for this provider first"
+                  : undefined
+              }
               onClick={apply}
               className="h-8 rounded-[6px] bg-brand px-3 text-[12px] font-medium text-white hover:bg-brand/90"
             >

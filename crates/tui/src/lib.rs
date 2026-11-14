@@ -23,13 +23,18 @@ use tokio::sync::mpsc::unbounded_channel;
 use crate::app::App;
 use crate::worker::{Approvals, Command, TuiEvent, Worker};
 
-pub fn run(cfg: Config, registry: Registry, cwd: PathBuf) -> termagent_core::Result<()> {
-    run_inner(cfg, registry, cwd, false)
+pub fn run(
+    cfg: Config,
+    registry: Registry,
+    cwd: PathBuf,
+    session_id: Option<String>,
+) -> termagent_core::Result<()> {
+    run_inner(cfg, registry, cwd, false, session_id)
 }
 
 /// Always show the provider/key/model flow, even when a config exists.
 pub fn run_onboarding(cfg: Config, registry: Registry, cwd: PathBuf) -> termagent_core::Result<()> {
-    run_inner(cfg, registry, cwd, true)
+    run_inner(cfg, registry, cwd, true, None)
 }
 
 fn run_inner(
@@ -37,6 +42,7 @@ fn run_inner(
     registry: Registry,
     cwd: PathBuf,
     force_onboarding: bool,
+    initial_session: Option<String>,
 ) -> termagent_core::Result<()> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -73,7 +79,15 @@ fn run_inner(
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let mut app = App::new(cfg, registry, cmd_tx, approvals, ui_rx, force_onboarding);
+    let mut app = App::new(
+        cfg,
+        registry,
+        cmd_tx,
+        approvals,
+        ui_rx,
+        force_onboarding,
+        initial_session,
+    );
     let result = event_loop(&mut terminal, &mut app);
 
     disable_raw_mode()?;
