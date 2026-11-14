@@ -1,0 +1,20 @@
+[package]
+name = "termagent-tui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+termagent-core = { path = "../core" }
+ratatui = "0.29"
+crossterm = "0.28"
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+serde_json = { workspace = true }
+uuid = { version = "1", features = ["v4"] }
+unicode-width = "0.2"
+futures-util = { workspace = true }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+
+[dev-dependencies]
+tempfile.workspace = true

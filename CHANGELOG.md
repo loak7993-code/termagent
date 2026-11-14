@@ -1,55 +1,44 @@
 # Changelog
 
-## 1.0.0 — TypeScript rewrite on Ink + termcn
+## 2.0.0 - 2026-11-14
 
-The Python implementation remains available at the `v0.2.0-python` tag. Session
-files (`~/.config/termagent/sessions/*.jsonl`) and `config.json` carry over.
+Rust rewrite. The Ink/TypeScript TUI is gone; one binary now serves both surfaces.
 
-### UI
-- Full rewrite of the interface as a full-screen Ink app on the termcn component
-  system (https://termcn.dev): app-shell layout (header with status badges,
-  scrollable chat feed, bordered composer, hints footer).
-- Real interactive termcn components replace the Python build's static renders:
-  ToolCall (live braille spinner, elapsed ms, args), ToolApproval (risk badge with
-  y/n/a keys), ModelSelector (arrow keys + enter, grouped free/paid), TokenUsage,
-  ChatMessage role labels, ThinkingBlock, DiffView (edit results), Badge, Panel.
-- 17 termcn themes with live hot-swap via `/theme` (no restart), persisted to
-  config; also `--theme` / `--list-themes` / `TERMAGENT_THEME`.
-- Edit results render a colored unified diff (termcn DiffView).
-- Arrow keys scroll the feed; esc closes overlays.
+### Added
 
-### Agent
-- Ported agent core: streaming OpenAI-compatible client over fetch (chunked
-  tool-call accumulation, reasoning deltas, usage capture), tool-calling loop with
-  per-tool durations, per-turn token usage.
-- Same 8 tools ported from Python (bash, read, ls, glob, grep, write, edit, todo)
-  with the same result formats; grep still prefers ripgrep.
-- Graceful `stream_options` fallback (providers that reject the field are retried
-  without it).
+- Native TUI on ratatui: provider wizard, streaming chat, tool cards with real
+  durations, approval modal, model picker, session picker, eight themes, ASCII fallback.
+- `termagent --web`: local browser chat on `127.0.0.1:6033` with a session sidebar,
+  searchable model chooser, inline approvals, usage, and streaming replies.
+- First-run onboarding in both surfaces: provider, key, model, effort.
+- Providers and models from models.dev (309 providers, 7,958 tool models in the bundled
+  snapshot), refreshed on demand and cached for 24 hours.
+- Three protocol adapters: OpenAI-compatible SSE, Anthropic Messages, Google Gemini.
+- Per-provider key storage, mode 0600; environment keys are detected but never written.
+- Effort control (auto, low, medium, high, max) mapped to each protocol's reasoning field.
+- Auto effort heuristic per message, visible as `auto → high` in the UI.
+- Tool durations measured around execution, excluding approval wait.
+- WebSocket protocol with a per-boot token and origin check; REST API for sessions.
+- `--onboard`, `--list-models`, `--refresh`, `--session`, `--cwd`, `--port`.
 
-### Provider fixes carried over from 0.2.0
-- Zen catalog rebuilt from the live /models list; the 0.1.0 default model no
-  longer exists upstream.
-- Zen's free tier is OpenCode-client-gated; the 403 FreeTierError is detected and
-  explained with actionable options (key, other provider, local model). No UA
-  spoofing.
-- Stale Zen model ids auto-heal at startup; custom endpoints are never
-  second-guessed.
+### Changed
 
-### Packaging / quality
-- npm package: `npm link` or `npm i -g .` installs the `termagent` binary;
-  Node >= 20; ships compiled `dist/` only (no source maps).
-- vitest suite (29 tests): full agent loop against a scripted local SSE mock
-  server, SSE parsing and fallbacks, all 8 tools on temp dirs, theme registry
-  completeness, termcn component renders via ink-testing-library.
-- Strict TypeScript, zero `tsc` errors; UI verified in tmux at 100x40 with
-  screenshots in `docs/previews/`.
+- Web UI built with React 19, Vite, Tailwind v4, shadcn components, `@aicss/react`
+  primitives, and Phosphor icons; web assets are embedded in the binary.
+- Sessions use a JSONL event log with a meta line, title events, tool metadata, and totals.
+- Tool schemas and messages are converted per protocol instead of assuming one wire shape.
 
-## 0.2.0 — termcn-themed Python build (see the v0.2.0-python tag)
-- termcn design language ported to rich: 17 themes, badges/alerts/tool
-  call/approval/model selector/token usage/diff view, Zen provider fixes, test
-  suite.
+### Removed
 
-## 0.1.0 — initial release (Python)
-- Interactive REPL, streaming markdown, 8 tools, human-in-the-loop approval,
-  /models picker, session save/resume, OpenCode Zen defaults.
+- The TypeScript/Ink application and its npm dependencies.
+- The hardcoded OpenCode Zen catalog, including model ids the client could not speak to.
+- `--config` (replaced by `--onboard`), `TERMAGENT_SHOW_REASONING`, and the old 17-theme set.
+- `sudo`, `su`, `doas`, `pkexec`, and `run0` execution; privilege escalation is refused.
+
+### Security
+
+- File tools resolve paths inside the workspace and reject symlink escapes.
+- Child processes start without API keys, cloud credentials, or SSH agent sockets.
+- API keys never reach the browser, session files, or logs.
+- Web server binds 127.0.0.1, requires the boot token on the API and WebSocket, and sends
+  no CORS headers.

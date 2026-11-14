@@ -1,40 +1,5 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.egg-info/
-*.egg-link
-build/
-dist/
-.eggs/
-.venv/
-venv/
-env/
-.tox/
-.coverage
-.coverage.*
-htmlcov/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-
-# Editable installs
-*.pth
-
-# Local config (contains API keys)
-config.json
-*.local
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-*.swp
-
-# Node
+/target
 node_modules/
-dist/
-*.tsbuildinfo
+web/node_modules/
+*.log
+.DS_Store
