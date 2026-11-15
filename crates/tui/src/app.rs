@@ -157,6 +157,8 @@ impl App {
         let configured = cfg.is_configured(&registry) && !force_onboarding;
         let onboarding = if configured {
             None
+        } else if force_onboarding {
+            Some(Onboarding::fresh(&cfg, &registry))
         } else {
             Some(Onboarding::resume(&cfg, &registry))
         };

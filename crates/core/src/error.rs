@@ -18,6 +18,8 @@ pub enum Error {
     Cancelled,
     #[error("not configured: run `termagent --onboard` or set a provider key")]
     NotConfigured,
+    #[error("{0}")]
+    Terminal(String),
     #[error("json: {0}")]
     Json(#[from] serde_json::Error),
 }

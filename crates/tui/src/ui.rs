@@ -105,7 +105,7 @@ fn draw_chat(f: &mut Frame, app: &App, area: Rect) {
     let (status, status_style) = status_label(app);
     let left = vec![
         Span::styled(" termagent", accent(p)),
-        Span::styled(" 2.0 ", dim(p)),
+        Span::styled(format!(" {} ", termagent_core::VERSION), dim(p)),
         Span::styled("· ", dim(p)),
         Span::styled(ellipsize(&title, 40), base(p)),
         Span::styled("  ", dim(p)),
@@ -430,8 +430,15 @@ fn draw_onboarding(f: &mut Frame, app: &App, area: Rect) {
 
     let left = vec![
         Span::styled(" termagent", accent(p)),
-        Span::styled(" 2.0 ", dim(p)),
-        Span::styled("· first run", dim(p)),
+        Span::styled(format!(" {} ", termagent_core::VERSION), dim(p)),
+        Span::styled(
+            if ob.reconfigure {
+                "· configure"
+            } else {
+                "· first run"
+            },
+            dim(p),
+        ),
     ];
     let right = vec![Span::styled("provider → key → model → effort ", dim(p))];
     f.render_widget(

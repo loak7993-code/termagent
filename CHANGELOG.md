@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.0.1 - 2026-11-15
+
+### Fixed
+
+- The TUI no longer shows an empty alternate screen when the terminal reports a 0x0
+  size. It waits briefly for a real size, then explains how to resize and exits.
+- Running the TUI without an interactive terminal now prints an actionable message
+  instead of `No such device or address`, pointing at `termagent --web`.
+- The terminal is restored on panic, so a crash cannot leave the shell in raw mode.
+- `--onboard` starts at the provider list even with a half-written config, and a normal
+  start asks for the missing key instead of jumping to effort.
+
+### Added
+
+- Prebuilt Termux binaries in the release and installer download path.
+
 ## 2.0.0 - 2026-11-14
 
 Rust rewrite. The Ink/TypeScript TUI is gone; one binary now serves both surfaces.

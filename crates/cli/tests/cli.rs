@@ -8,7 +8,7 @@ fn version_prints_name_and_version() {
         .arg("--version")
         .assert()
         .success()
-        .stdout(predicate::str::contains("termagent 2.0.0"));
+        .stdout(predicate::str::contains("termagent 2.0.1"));
 }
 
 #[test]
@@ -95,4 +95,18 @@ fn base_url_creates_a_custom_provider() {
         .success()
         .stdout(predicate::str::contains("Custom endpoint (custom)"))
         .stdout(predicate::str::contains("custom/test-model"));
+}
+
+#[test]
+fn onboard_without_a_tty_explains_the_options() {
+    let dir = tempfile::tempdir().unwrap();
+    Command::cargo_bin("termagent")
+        .unwrap()
+        .env("TERMAGENT_CONFIG_DIR", dir.path())
+        .arg("--onboard")
+        .write_stdin("")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("interactive terminal"))
+        .stderr(predicate::str::contains("--web"));
 }

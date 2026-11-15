@@ -164,3 +164,42 @@ fn narrow_terminal_does_not_overflow() {
         assert!(line.chars().count() <= 40, "overflow: {line}");
     }
 }
+
+#[test]
+fn forced_onboarding_starts_at_the_provider_list() {
+    let registry = Registry::snapshot().unwrap();
+    let (cmd_tx, _cmd_rx) = tokio::sync::mpsc::unbounded_channel::<Command>();
+    let (_ui_tx, ui_rx) = channel::<TuiEvent>();
+    let app = App::new(
+        configured(),
+        registry,
+        cmd_tx,
+        Approvals::default(),
+        ui_rx,
+        true,
+        None,
+    );
+    let screen = render(&app, 120, 36);
+    assert!(screen.contains("Pick a provider"), "{screen}");
+}
+
+#[test]
+fn resume_asks_for_a_missing_key_before_effort() {
+    let registry = Registry::snapshot().unwrap();
+    let (cmd_tx, _cmd_rx) = tokio::sync::mpsc::unbounded_channel::<Command>();
+    let (_ui_tx, ui_rx) = channel::<TuiEvent>();
+    let mut cfg = configured();
+    cfg.api_key.clear();
+    let app = App::new(
+        cfg,
+        registry,
+        cmd_tx,
+        Approvals::default(),
+        ui_rx,
+        false,
+        None,
+    );
+    let screen = render(&app, 120, 36);
+    assert!(screen.contains("Connect Anthropic"), "{screen}");
+    assert!(screen.contains("Paste a key"), "{screen}");
+}

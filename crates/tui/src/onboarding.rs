@@ -46,6 +46,7 @@ pub struct Onboarding {
     pub env_found: Option<String>,
     pub notice: Option<String>,
     pub key_value: String,
+    pub reconfigure: bool,
 }
 
 impl Onboarding {
@@ -62,20 +63,43 @@ impl Onboarding {
             env_found: None,
             notice: None,
             key_value: String::new(),
+            reconfigure: false,
         }
     }
 
     pub fn resume(cfg: &Config, registry: &Registry) -> Self {
         let mut ob = Self::new(cfg);
-        if let Some(p) = registry.provider(&cfg.provider) {
-            ob.provider = Some(p.clone());
-            if let Some(m) = p.models.iter().find(|m| m.id == cfg.model) {
-                ob.model = Some(m.clone());
-                ob.effort_sel = effort_index(cfg.effort);
-                ob.step = Step::Effort;
-            } else {
-                ob.step = Step::Model;
-            }
+        let Some(provider) = registry.provider(&cfg.provider) else {
+            return ob;
+        };
+        ob.provider = Some(provider.clone());
+        ob.env_found = detected_env(provider);
+        if cfg.key_for(provider).is_none() {
+            ob.step = Step::Key;
+            return ob;
+        }
+        if let Some(model) = provider.models.iter().find(|m| m.id == cfg.model) {
+            ob.model = Some(model.clone());
+            ob.effort_sel = effort_index(cfg.effort);
+            ob.step = Step::Effort;
+        } else {
+            ob.step = Step::Model;
+        }
+        ob
+    }
+
+    /// Start at the provider list for an explicit `--onboard`, even when a
+    /// half-configured file exists, with the current provider preselected.
+    pub fn fresh(cfg: &Config, registry: &Registry) -> Self {
+        let mut ob = Self::new(cfg);
+        ob.reconfigure = true;
+        if let Some(provider) = registry.provider(&cfg.provider) {
+            ob.provider = Some(provider.clone());
+            let list = ob.providers(registry);
+            ob.sel = list
+                .iter()
+                .position(|entry| entry.id == provider.id)
+                .unwrap_or(0);
         }
         ob
     }
@@ -304,6 +328,14 @@ impl Onboarding {
         }
         Some(Action::Saved(cfg))
     }
+}
+
+fn detected_env(provider: &Provider) -> Option<String> {
+    provider
+        .env
+        .iter()
+        .find(|var| std::env::var(var).map(|v| !v.is_empty()).unwrap_or(false))
+        .cloned()
 }
 
 pub fn effort_index(effort: Effort) -> usize {
