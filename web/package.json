@@ -1,7 +1,7 @@
 {
   "name": "termagent-web",
   "private": true,
-  "version": "2.0.8",
+  "version": "2.0.9",
   "description": "Browser client for termagent, served by the termagent binary.",
   "type": "module",
   "engines": {

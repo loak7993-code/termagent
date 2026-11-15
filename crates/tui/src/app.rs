@@ -120,6 +120,23 @@ pub enum Overlay {
     Help,
 }
 
+pub const SLASH_COMMANDS: &[(&str, &str)] = &[
+    ("/model", "pick a model from any configured provider"),
+    ("/models", "same as /model"),
+    ("/effort", "cycle or set effort: auto low medium high max"),
+    ("/key", "replace the API key for this provider"),
+    ("/sessions", "list, load, or delete sessions"),
+    ("/new", "start a new session"),
+    ("/theme", "cycle or set the TUI theme"),
+    ("/config", "provider, key, model, effort wizard"),
+    ("/tools", "list available tools"),
+    ("/cwd", "show the workspace path"),
+    ("/compact", "context and session notes"),
+    ("/help", "keys and commands"),
+    ("/clear", "start a clean session"),
+    ("/exit", "quit termagent"),
+];
+
 pub struct App {
     pub cfg: Config,
     pub registry: Registry,
@@ -139,6 +156,8 @@ pub struct App {
     pub history: Vec<String>,
     pub history_idx: Option<usize>,
     pub theme_names: Vec<&'static str>,
+    pub slash_open: bool,
+    pub slash_idx: usize,
     initial_session: Option<String>,
 }
 
@@ -185,12 +204,44 @@ impl App {
             history: Vec::new(),
             history_idx: None,
             theme_names: theme::names(),
+            slash_open: false,
+            slash_idx: 0,
             initial_session,
         };
         if configured {
             app.start_chat();
         }
         app
+    }
+
+    pub fn slash_query(&self) -> Option<String> {
+        let value = self.input.value();
+        let rest = value.strip_prefix('/')?;
+        if rest.contains(char::is_whitespace) {
+            return None;
+        }
+        Some(rest.to_ascii_lowercase())
+    }
+
+    pub fn slash_matches(&self) -> Vec<(&'static str, &'static str)> {
+        let Some(query) = self.slash_query() else {
+            return Vec::new();
+        };
+        SLASH_COMMANDS
+            .iter()
+            .filter(|(command, _)| command[1..].starts_with(&query))
+            .copied()
+            .collect()
+    }
+
+    fn suggest_slash(&mut self, reset: bool) {
+        if reset {
+            self.slash_idx = 0;
+        }
+        self.slash_open = self.slash_query().is_some() && !self.slash_matches().is_empty();
+        if !self.slash_open {
+            self.slash_idx = 0;
+        }
     }
 
     fn new_session(&mut self) {
@@ -481,6 +532,41 @@ impl App {
             return;
         }
 
+        if self.slash_open && !self.slash_matches().is_empty() {
+            let matches = self.slash_matches();
+            match key.code {
+                KeyCode::Up => {
+                    self.slash_idx = self.slash_idx.saturating_sub(1);
+                    return;
+                }
+                KeyCode::Down => {
+                    self.slash_idx = (self.slash_idx + 1) % matches.len();
+                    return;
+                }
+                KeyCode::Tab => {
+                    if let Some((command, _)) = matches.get(self.slash_idx) {
+                        self.input.set(command);
+                        self.slash_open = false;
+                    }
+                    return;
+                }
+                KeyCode::Esc => {
+                    self.slash_open = false;
+                    return;
+                }
+                KeyCode::Enter => {
+                    if let Some((command, _)) = matches.get(self.slash_idx).copied() {
+                        self.input.clear();
+                        self.slash_open = false;
+                        self.history.push(command.to_string());
+                        self.handle_slash(command);
+                    }
+                    return;
+                }
+                _ => {}
+            }
+        }
+
         match key.code {
             KeyCode::Esc => {
                 if self.chat.status == Status::Streaming {
@@ -501,6 +587,7 @@ impl App {
                     return;
                 }
                 self.input.clear();
+                self.slash_open = false;
                 self.history_idx = None;
                 self.history.push(text.clone());
                 if self.handle_slash(text.trim()) {
@@ -508,9 +595,18 @@ impl App {
                 }
                 self.send_turn(text.trim().to_string());
             }
-            KeyCode::Char(c) if !ctrl && !alt => self.input.insert(c),
-            KeyCode::Backspace => self.input.backspace(),
-            KeyCode::Delete => self.input.delete(),
+            KeyCode::Char(c) if !ctrl && !alt => {
+                self.input.insert(c);
+                self.suggest_slash(true);
+            }
+            KeyCode::Backspace => {
+                self.input.backspace();
+                self.suggest_slash(true);
+            }
+            KeyCode::Delete => {
+                self.input.delete();
+                self.suggest_slash(true);
+            }
             KeyCode::Left => self.input.left(),
             KeyCode::Right => self.input.right(),
             KeyCode::Home => self.input.home(),
@@ -926,6 +1022,7 @@ impl App {
         }
         if self.chat.pending.is_none() {
             self.input.insert_str(text);
+            self.suggest_slash(true);
         }
     }
 

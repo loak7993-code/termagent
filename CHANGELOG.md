@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.9 - 2026-11-15
+
+### Added
+
+- Slash command palette in the TUI: type `/` for every command and description, keep
+  typing to filter, use arrows to choose, Tab to complete, Enter to run, Esc to close.
+
 ## 2.0.8 - 2026-11-15
 
 ### Fixed

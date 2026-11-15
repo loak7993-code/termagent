@@ -227,3 +227,41 @@ fn key_command_jumps_to_the_key_field() {
     assert!(ob.provider.is_some());
     assert!(ob.notice.as_deref().unwrap_or("").contains("new key"));
 }
+
+#[test]
+fn slash_palette_filters_and_completes() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let mut app = app(configured());
+    app.handle_key(KeyEvent::new(KeyCode::Char('/'), KeyModifiers::NONE));
+    let all = render(&app, 120, 36);
+    assert!(all.contains("/sessions"), "{all}");
+    assert!(all.contains("list, load, or delete sessions"), "{all}");
+    assert!(all.contains("enter run"), "{all}");
+
+    app.handle_key(KeyEvent::new(KeyCode::Char('m'), KeyModifiers::NONE));
+    app.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::NONE));
+    let filtered = render(&app, 120, 36);
+    assert!(filtered.contains("/model"), "{filtered}");
+    assert!(filtered.contains("/models"), "{filtered}");
+    assert!(!filtered.contains("/sessions"), "{filtered}");
+
+    app.handle_key(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE));
+    assert_eq!(app.input.value(), "/model");
+    assert!(!app.slash_open);
+}
+
+#[test]
+fn slash_palette_enter_runs_the_selected_command() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let mut app = app(configured());
+    for key in [
+        KeyCode::Char('/'),
+        KeyCode::Char('h'),
+        KeyCode::Char('e'),
+        KeyCode::Enter,
+    ] {
+        app.handle_key(KeyEvent::new(key, KeyModifiers::NONE));
+    }
+    let screen = render(&app, 120, 36);
+    assert!(screen.contains("keys and commands"), "{screen}");
+}

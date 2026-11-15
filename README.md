@@ -150,6 +150,10 @@ termagent --web                            # browser UI, port 6033
 | `f1` | help |
 | `ctrl+c` | quit |
 
+Type `/` in the composer to open the command palette. Typing narrows it, `up` and
+`down` choose, `tab` completes, and `enter` runs the selected command. Esc closes the
+palette without clearing the input.
+
 Slash commands: `/model`, `/effort`, `/key`, `/sessions`, `/new`, `/theme`, `/config`,
 `/tools`, `/cwd`, `/compact`, `/help`, `/exit`.
 

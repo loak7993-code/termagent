@@ -165,10 +165,12 @@ fn draw_chat(f: &mut Frame, app: &App, area: Rect) {
         f.set_cursor_position((x, composer.y));
     }
 
-    let hint = if app.chat.status == Status::Streaming {
+    let hint = if app.slash_open {
+        "↑↓ choose · tab complete · enter run · esc close"
+    } else if app.chat.status == Status::Streaming {
         "esc stop · ↑ scroll · ^k models · ^s sessions · ^e effort · ^c quit"
     } else {
-        "enter send · ^k models · ^s sessions · ^e effort · ^t theme · /help"
+        "enter send · type / for commands · ^k models · ^s sessions · /help"
     };
     let model_ref = app.registry.model(&app.cfg.provider, &app.cfg.model);
     let cost = model_ref.map(|m| app.chat.usage.cost(m));
@@ -188,6 +190,60 @@ fn draw_chat(f: &mut Frame, app: &App, area: Rect) {
         Paragraph::new(hline(left, right, footer.width as usize)),
         footer,
     );
+    draw_slash_menu(f, app, composer, feed);
+}
+
+fn draw_slash_menu(f: &mut Frame, app: &App, anchor: Rect, area: Rect) {
+    if !app.slash_open {
+        return;
+    }
+    let matches = app.slash_matches();
+    if matches.is_empty() {
+        return;
+    }
+    let p = &app.palette;
+    let visible = matches.len().min(8);
+    let height = (visible as u16 + 2)
+        .min(anchor.y.saturating_sub(area.y))
+        .max(3);
+    let width = anchor.width.saturating_sub(2).clamp(24, 72);
+    let rect = Rect {
+        x: anchor.x + 1,
+        y: anchor.y.saturating_sub(height),
+        width,
+        height,
+    };
+    f.render_widget(Clear, rect);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(dim(p))
+        .title(Span::styled(" commands ", dim(p)));
+    f.render_widget(block, rect);
+    let inner = rect.inner(ratatui::layout::Margin::new(1, 1));
+    let offset = util::window(matches.len(), app.slash_idx, visible);
+    for (row, (command, description)) in matches.iter().skip(offset).take(visible).enumerate() {
+        let idx = offset + row;
+        let selected = idx == app.slash_idx;
+        let y = inner.y + row as u16;
+        let left = vec![
+            Span::styled(if selected { "▸ " } else { "  " }, accent(p)),
+            Span::styled(
+                format!("{command:<12}"),
+                if selected { accent(p) } else { base(p) },
+            ),
+        ];
+        let right = vec![
+            Span::styled(
+                ellipsize(description, inner.width.saturating_sub(16) as usize),
+                dim(p),
+            ),
+            Span::raw(" "),
+        ];
+        f.render_widget(
+            Paragraph::new(hline(left, right, inner.width as usize)),
+            Rect { y, ..inner },
+        );
+    }
 }
 
 fn compact_tokens(n: u64) -> String {
