@@ -16,6 +16,7 @@ pub struct ProviderSpec {
     pub protocol: Protocol,
     pub base_url: String,
     pub api_key: String,
+    pub project: Option<String>,
 }
 
 impl ProviderSpec {
@@ -26,10 +27,17 @@ impl ProviderSpec {
             .clone()
             .filter(|b| !b.trim().is_empty())
             .unwrap_or_else(|| provider.api.clone());
+        let project = cfg.project.clone().filter(|value| !value.trim().is_empty());
+        if provider.id == "wandb" && project.is_none() {
+            return Err(Error::Config(
+                "CoreWeave needs a Forge team and project. Run `termagent --onboard`, set Project to team/project, or pass --project team/project.".into(),
+            ));
+        }
         Ok(ProviderSpec {
             protocol: provider.protocol,
             base_url: base_url.trim_end_matches('/').to_string(),
             api_key: key,
+            project,
         })
     }
 }

@@ -42,12 +42,14 @@ async fn send(
         .timeout(std::time::Duration::from_secs(300))
         .build()
         .map_err(|e| Error::Http(e.to_string()))?;
-    let fut = client
+    let mut request = client
         .post(format!("{}/chat/completions", spec.base_url))
         .bearer_auth(&spec.api_key)
-        .header("accept", "text/event-stream")
-        .json(body)
-        .send();
+        .header("accept", "text/event-stream");
+    if let Some(project) = &spec.project {
+        request = request.header("OpenAI-Project", project);
+    }
+    let fut = request.json(body).send();
     tokio::select! {
         _ = cancel.cancelled() => Err(Error::Cancelled),
         resp = fut => resp.map_err(|e| Error::Http(format!("request: {e}"))),

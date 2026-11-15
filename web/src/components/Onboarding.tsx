@@ -30,6 +30,7 @@ interface OnboardingProps {
     provider: string;
     model: string;
     api_key: string;
+    project: string;
     effort: Effort;
   }) => Promise<void>;
   onClose?: () => void;
@@ -66,6 +67,7 @@ export function Onboarding({
 }: OnboardingProps) {
   const [providerId, setProviderId] = useState(() => defaultProvider(snapshot, initialProvider));
   const [key, setKey] = useState("");
+  const [project, setProject] = useState(snapshot.project ?? "");
   const [modelId, setModelId] = useState<string | null>(null);
   const [effort, setEffort] = useState<Effort>(snapshot.effort ?? "auto");
   const [models, setModels] = useState<Record<string, ModelInfo[]>>({});
@@ -154,7 +156,12 @@ export function Onboarding({
   );
 
   const keyOptional = Boolean(provider?.keySet || provider?.envSet || provider?.local);
-  const canStart = Boolean(provider && model && !busy) && (key.trim().length > 0 || keyOptional);
+  const projectOk =
+    !provider?.requiresProject || project.trim().includes("/");
+  const canStart =
+    Boolean(provider && model && !busy) &&
+    (key.trim().length > 0 || keyOptional) &&
+    projectOk;
 
   const submit = async () => {
     if (!provider || !model) return;
@@ -165,6 +172,7 @@ export function Onboarding({
         provider: provider.id,
         model: model.id,
         api_key: key.trim(),
+        project: provider.requiresProject ? project.trim() : "",
         effort,
       });
     } catch (err) {
@@ -284,6 +292,27 @@ export function Onboarding({
                   : "Written 0600 to the termagent config on this machine. Never sent anywhere else."}
             </p>
           </div>
+
+          {provider?.requiresProject && (
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="text-[11.5px] font-medium text-dim" htmlFor="project">
+                  Team / project
+                </label>
+                <span className="mono text-[10px] text-faint">OpenAI-Project</span>
+              </div>
+              <Input
+                id="project"
+                value={project}
+                onChange={(event) => setProject(event.target.value)}
+                placeholder="team/project"
+                className="h-10 rounded-md border-0 bg-white/[0.04] text-[13px] focus-visible:ring-2 focus-visible:ring-brand/60"
+              />
+              <p className="mt-1.5 text-[10.5px] leading-4 text-faint">
+                CoreWeave routes requests by Forge team and project. Find both in Forge settings.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="mb-1.5 block text-[11.5px] font-medium text-dim" htmlFor="model">

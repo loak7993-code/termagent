@@ -89,6 +89,7 @@ export interface AgentApi {
     provider: string;
     model: string;
     api_key: string;
+    project: string;
     effort: Effort;
   }) => Promise<void>;
   dismissBanner: () => void;
@@ -270,7 +271,18 @@ export function useAgent(): AgentApi {
           setPending(null);
           setItems((prev) => {
             const last = prev[prev.length - 1];
-            if (last && last.kind === "error" && last.text === message) return prev;
+            if (
+              last &&
+              last.kind === "error" &&
+              (last.text === message ||
+                last.text.startsWith(message) ||
+                message.startsWith(last.text))
+            ) {
+              if (message.length > last.text.length) {
+                return [...prev.slice(0, -1), { ...last, text: message }];
+              }
+              return prev;
+            }
             return [
               ...prev.map(closeStreaming),
               { kind: "error", id: uid(), text: message },
@@ -447,7 +459,13 @@ export function useAgent(): AgentApi {
   }, []);
 
   const onboard = useCallback(
-    async (input: { provider: string; model: string; api_key: string; effort: Effort }) => {
+    async (input: {
+      provider: string;
+      model: string;
+      api_key: string;
+      project: string;
+      effort: Effort;
+    }) => {
       const next = await api<Snapshot>("/api/onboard", {
         method: "POST",
         body: JSON.stringify(input),

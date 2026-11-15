@@ -260,6 +260,7 @@ async fn apply_model(
                 cfg.base_url = None;
             }
             cfg.api_key.clear();
+            cfg.project = None;
         }
         cfg.provider = provider.clone();
         cfg.model = model.clone();

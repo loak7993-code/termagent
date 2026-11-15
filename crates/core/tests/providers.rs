@@ -4,6 +4,7 @@ use serde_json::json;
 use termagent_core::providers::{self, ChatRequest, ProviderSpec};
 use termagent_core::registry::Protocol;
 use termagent_core::types::{Delta, Effort, Message};
+use termagent_core::{Config, Registry};
 use tokio_util::sync::CancellationToken;
 
 fn req() -> ChatRequest {
@@ -22,6 +23,7 @@ fn spec(base: &str, protocol: Protocol) -> ProviderSpec {
         protocol,
         base_url: base.to_string(),
         api_key: "test-key".into(),
+        project: None,
     }
 }
 
@@ -134,4 +136,59 @@ async fn cancellation_wins_before_request() {
         .await
         .unwrap_err();
     assert!(matches!(err, termagent_core::Error::Cancelled));
+}
+
+#[test]
+fn coreweave_requires_a_project() {
+    let registry = Registry::snapshot().unwrap();
+    let provider = registry.provider("wandb").expect("wandb provider");
+    let mut cfg = Config {
+        provider: "wandb".into(),
+        model: "deepseek-ai/DeepSeek-V4.1-Flash-1017".into(),
+        ..Config::default()
+    };
+    cfg.keys.insert("wandb".into(), "key".into());
+    assert!(ProviderSpec::resolve(provider, &cfg).is_err());
+    cfg.project = Some("acme/agent".into());
+    let spec = ProviderSpec::resolve(provider, &cfg).unwrap();
+    assert_eq!(spec.project.as_deref(), Some("acme/agent"));
+}
+
+#[tokio::test]
+async fn openai_sends_the_project_header() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        let mut buf = vec![0u8; 65536];
+        let n = socket.read(&mut buf).await.unwrap_or(0);
+        let request = String::from_utf8_lossy(&buf[..n]).to_ascii_lowercase();
+        let (status, body) = if request.contains("openai-project: acme/agent") {
+            (
+                "200 OK",
+                "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"}}]}\n\ndata: [DONE]\n\n",
+            )
+        } else {
+            (
+                "401 Unauthorized",
+                "{\"error\":{\"message\":\"missing project\"}}",
+            )
+        };
+        let response = format!(
+            "HTTP/1.1 {status}\r\ncontent-type: text/event-stream\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+            body.len()
+        );
+        let _ = socket.write_all(response.as_bytes()).await;
+        let _ = socket.shutdown().await;
+    });
+
+    let mut spec = spec(&format!("http://{addr}"), Protocol::OpenAi);
+    spec.project = Some("acme/agent".into());
+    let out = providers::stream(&spec, &req(), &CancellationToken::new(), &mut |_| {})
+        .await
+        .unwrap();
+    assert_eq!(out.text, "ok");
 }

@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.0.3 - 2026-11-15
+
+### Fixed
+
+- CoreWeave / W&B Inference now collects the Forge team and project and sends the
+  required `OpenAI-Project` header. A missing project fails before the request instead
+  of returning 401.
+- Provider switching clears the previous project.
+- Duplicate error cards are collapsed so one failure shows once.
+
+### Added
+
+- `--project team/project` and `TERMAGENT_PROJECT` / `OPENAI_PROJECT`.
+- A project step in the TUI wizard and a project field in the browser wizard for
+  CoreWeave.
+
 ## 2.0.2 - 2026-11-15
 
 ### Fixed

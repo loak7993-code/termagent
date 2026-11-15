@@ -362,11 +362,17 @@ export function ModelDialog({
             </Button>
             <Button
               size="sm"
-              disabled={!draftModel || Boolean(provider && !provider.keySet && !provider.local)}
+              disabled={
+                !draftModel ||
+                Boolean(provider && !provider.keySet && !provider.local) ||
+                Boolean(provider?.requiresProject && !snapshot.project)
+              }
               title={
                 provider && !provider.keySet && !provider.local
                   ? "Add a key for this provider first"
-                  : undefined
+                  : provider?.requiresProject && !snapshot.project
+                    ? "Open provider settings and set the team/project first"
+                    : undefined
               }
               onClick={apply}
               className="h-8 rounded-[6px] bg-brand px-3 text-[12px] font-medium text-white hover:bg-brand/90"

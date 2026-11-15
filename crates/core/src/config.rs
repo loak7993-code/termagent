@@ -21,6 +21,9 @@ pub struct Config {
     pub effort: Effort,
     #[serde(default)]
     pub base_url: Option<String>,
+    /// Sent as `OpenAI-Project` for CoreWeave / W&B Inference.
+    #[serde(default)]
+    pub project: Option<String>,
     /// Legacy single key, kept for -k and old config files.
     #[serde(default)]
     pub api_key: String,
@@ -52,6 +55,7 @@ impl Default for Config {
             model: String::new(),
             effort: Effort::Auto,
             base_url: None,
+            project: None,
             api_key: String::new(),
             keys: BTreeMap::new(),
             system: String::new(),
@@ -128,6 +132,11 @@ impl Config {
         if let Ok(v) = env::var("TERMAGENT_BASE_URL") {
             if !v.is_empty() {
                 self.base_url = Some(v);
+            }
+        }
+        if let Ok(v) = env::var("TERMAGENT_PROJECT").or_else(|_| env::var("OPENAI_PROJECT")) {
+            if !v.trim().is_empty() {
+                self.project = Some(v.trim().to_string());
             }
         }
         if let Ok(v) = env::var("TERMAGENT_EFFORT") {

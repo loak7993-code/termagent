@@ -49,6 +49,10 @@ struct Cli {
     #[arg(short, long = "base-url")]
     base_url: Option<String>,
 
+    /// Team/project for CoreWeave and W&B Inference (OpenAI-Project header)
+    #[arg(long)]
+    project: Option<String>,
+
     /// API key (prefer the provider's environment variable)
     #[arg(short = 'k', long = "api-key")]
     api_key: Option<String>,
@@ -110,6 +114,9 @@ fn run(cli: Cli) -> termagent_core::Result<()> {
     }
     if let Some(base) = &cli.base_url {
         cfg.base_url = Some(base.clone());
+    }
+    if let Some(project) = &cli.project {
+        cfg.project = Some(project.trim().to_string());
     }
     if let Some(key) = &cli.api_key {
         cfg.api_key = key.clone();

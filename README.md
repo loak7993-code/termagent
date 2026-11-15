@@ -197,6 +197,13 @@ result for 24 hours.
 Cloud IAM providers (Amazon Bedrock, Google Vertex, Azure, GitHub Copilot) are excluded
 because they cannot be set up with a single API key.
 
+CoreWeave (W&B Inference) needs its Forge team and project in addition to the key. The
+wizard asks for it as `team/project`, and requests send `OpenAI-Project`. From the CLI:
+
+```sh
+termagent --project your-team/your-project
+```
+
 A bare `--base-url` becomes a `Custom endpoint` provider using the OpenAI protocol.
 Local servers need no key. Start the local server first:
 
@@ -261,6 +268,7 @@ API keys, cloud credentials, and SSH agent sockets are removed.
 | `--provider <id>` | override the provider |
 | `-m, --model <id>` | override the model |
 | `-b, --base-url <url>` | custom OpenAI-compatible endpoint |
+| `--project <team/project>` | CoreWeave and W&B Inference project |
 | `-k, --api-key <key>` | key for this run; prefer environment variables |
 | `--effort <level>` | auto, low, medium, high, max |
 | `-c, --cwd <dir>` | workspace directory |
@@ -293,8 +301,9 @@ termagent --onboard        # provider, then key
 Or inside the TUI: `/key`. In the browser UI, open the gear button, choose the provider,
 and paste a new key. Config keys override environment variables.
 
-Common causes: a key from a different provider, a truncated paste, a revoked key, or a
-stale export in the shell.
+Common causes: a key from a different provider, a truncated paste, a revoked key, a
+stale export in the shell, or a provider that needs more than a key. CoreWeave also needs
+`team/project`; `termagent --status` prints it when set.
 
 ## Configuration
 
@@ -307,7 +316,7 @@ Files live in `$TERMAGENT_CONFIG_DIR`, default `~/.config/termagent`:
 | `sessions/<id>.jsonl` | one event log per session |
 
 `config.json` fields: `provider`, `model`, `effort`, `keys`, `api_key` (legacy), `base_url`,
-`system`, `max_turns`, `auto_approve`, `theme`.
+`project`, `system`, `max_turns`, `auto_approve`, `theme`.
 
 | Environment variable | Purpose |
 |---|---|
@@ -315,6 +324,7 @@ Files live in `$TERMAGENT_CONFIG_DIR`, default `~/.config/termagent`:
 | `TERMAGENT_PROVIDER` | provider id |
 | `TERMAGENT_MODEL` | model id |
 | `TERMAGENT_BASE_URL` | custom API base URL |
+| `TERMAGENT_PROJECT` / `OPENAI_PROJECT` | CoreWeave team/project |
 | `TERMAGENT_API_KEY` | key for the active provider |
 | `TERMAGENT_EFFORT` | auto, low, medium, high, max |
 | `TERMAGENT_THEME` | TUI theme |

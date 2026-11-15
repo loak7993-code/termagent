@@ -229,6 +229,21 @@ impl App {
         }
     }
 
+    fn push_error(&mut self, message: String) {
+        if let Some(Item::Error(last)) = self.chat.items.last_mut() {
+            if last == &message
+                || last.starts_with(message.as_str())
+                || message.starts_with(last.as_str())
+            {
+                if message.len() > last.len() {
+                    *last = message;
+                }
+                return;
+            }
+        }
+        self.chat.message(Item::Error(message));
+    }
+
     fn hydrate(&mut self, meta: &SessionMeta) {
         let Ok(session) = Session::open(&meta.id) else {
             return;
@@ -365,7 +380,7 @@ impl App {
                 self.chat.status = Status::Idle;
                 self.chat.live = Live::None;
                 self.chat.pending = None;
-                self.chat.message(Item::Error(msg));
+                self.push_error(msg);
             }
         }
     }
@@ -639,6 +654,7 @@ impl App {
                                 self.cfg.base_url = None;
                             }
                             self.cfg.api_key.clear();
+                            self.cfg.project = None;
                         }
                         self.cfg.provider = provider;
                         self.cfg.model = model.id.clone();
