@@ -655,7 +655,7 @@ impl App {
                         }
                         self.cfg.provider = provider;
                         self.cfg.model = model.id.clone();
-                        if !model.reasoning {
+                        if !model.reasoning || model.efforts.is_empty() {
                             self.cfg.effort = Effort::Auto;
                         }
                         let _ = self.cfg.save();

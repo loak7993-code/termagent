@@ -9,9 +9,7 @@ interface EffortPickerProps {
 }
 
 export function EffortPicker({ value, model, onChange, disabled, resolved }: EffortPickerProps) {
-  const allowed = model?.efforts?.length
-    ? new Set(model.efforts.map((e) => e.toLowerCase()))
-    : new Set(["low", "medium", "high"]);
+  const allowed = new Set((model?.efforts ?? []).map((e) => e.toLowerCase()));
   const reasoning = model?.reasoning ?? true;
 
   return (

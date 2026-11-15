@@ -31,7 +31,7 @@ export function TopBar({
 
   const effortText =
     snapshot.effort === "auto"
-      ? resolvedEffort
+      ? resolvedEffort && resolvedEffort !== "auto"
         ? `Auto → ${effortLabel(resolvedEffort)}`
         : "Auto"
       : effortLabel(snapshot.effort);

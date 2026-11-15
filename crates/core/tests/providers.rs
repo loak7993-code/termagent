@@ -193,3 +193,94 @@ async fn openai_sends_the_project_header() {
         .unwrap();
     assert_eq!(out.text, "ok");
 }
+
+#[tokio::test]
+async fn toggle_models_do_not_send_reasoning_effort() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        let mut buf = vec![0u8; 65536];
+        let n = socket.read(&mut buf).await.unwrap_or(0);
+        let request = String::from_utf8_lossy(&buf[..n]).to_ascii_lowercase();
+        let (status, body) = if request.contains("reasoning_effort") {
+            (
+                "400 Bad Request",
+                "{\"error\":{\"message\":\"unknown field\"}}",
+            )
+        } else {
+            (
+                "200 OK",
+                "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"}}]}\n\ndata: [DONE]\n\n",
+            )
+        };
+        let response = format!(
+            "HTTP/1.1 {status}\r\ncontent-type: text/event-stream\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+            body.len()
+        );
+        let _ = socket.write_all(response.as_bytes()).await;
+        let _ = socket.shutdown().await;
+    });
+
+    let mut request = req();
+    request.effort = termagent_core::Effort::Auto;
+    let out = providers::stream(
+        &spec(&format!("http://{addr}"), Protocol::OpenAi),
+        &request,
+        &CancellationToken::new(),
+        &mut |_| {},
+    )
+    .await
+    .unwrap();
+    assert_eq!(out.text, "ok");
+}
+
+#[tokio::test]
+async fn reasoning_toggle_falls_back_when_a_gateway_rejects_it() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        for attempt in 0..2 {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut buf = vec![0u8; 65536];
+            let n = socket.read(&mut buf).await.unwrap_or(0);
+            let request = String::from_utf8_lossy(&buf[..n]).to_ascii_lowercase();
+            let has_toggle = request.contains("\"reasoning\":{\"enabled\":true}");
+            let (status, body) = if attempt == 0 && has_toggle {
+                (
+                    "400 Bad Request",
+                    "{\"error\":{\"message\":\"unknown field reasoning\"}}",
+                )
+            } else {
+                (
+                    "200 OK",
+                    "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"}}]}\n\ndata: [DONE]\n\n",
+                )
+            };
+            let response = format!(
+                "HTTP/1.1 {status}\r\ncontent-type: text/event-stream\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            let _ = socket.write_all(response.as_bytes()).await;
+            let _ = socket.shutdown().await;
+        }
+    });
+
+    let mut request = req();
+    request.effort = termagent_core::Effort::Auto;
+    let out = providers::stream(
+        &spec(&format!("http://{addr}"), Protocol::OpenAi),
+        &request,
+        &CancellationToken::new(),
+        &mut |_| {},
+    )
+    .await
+    .unwrap();
+    assert_eq!(out.text, "ok");
+}

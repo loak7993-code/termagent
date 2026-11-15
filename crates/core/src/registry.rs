@@ -74,12 +74,9 @@ pub struct Model {
 }
 
 impl Model {
+    /// Empty means the model exposes a reasoning toggle, not effort levels.
     pub fn effort_values(&self) -> Vec<String> {
-        if self.efforts.is_empty() && self.reasoning {
-            vec!["low".into(), "medium".into(), "high".into()]
-        } else {
-            self.efforts.clone()
-        }
+        self.efforts.clone()
     }
 }
 

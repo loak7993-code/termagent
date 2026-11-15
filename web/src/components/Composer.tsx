@@ -47,7 +47,7 @@ export function Composer({
   const modelLabel = snapshot.modelName ?? snapshot.model;
   const effortText =
     snapshot.effort === "auto"
-      ? resolvedEffort
+      ? resolvedEffort && resolvedEffort !== "auto"
         ? `Auto → ${effortLabel(resolvedEffort)}`
         : "Auto"
       : effortLabel(snapshot.effort);

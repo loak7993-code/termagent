@@ -165,8 +165,9 @@ impl Agent {
                 Effort::Auto => effort::auto_level(text, turn),
                 other => other,
             };
-            let effective = if self.model.reasoning {
-                Effort::from_efforts(&self.model.effort_values(), resolved)
+            let effort_values = self.model.effort_values();
+            let effective = if self.model.reasoning && !effort_values.is_empty() {
+                Effort::from_efforts(&effort_values, resolved)
             } else {
                 Effort::Auto
             };

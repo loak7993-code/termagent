@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { motion } from "motion/react";
 import { WarningCircle } from "@phosphor-icons/react";
+import { ThinkingState } from "@aicss/react/thinking-state";
 import type { Item } from "@/lib/termagent";
 import { Markdown } from "@/components/Markdown";
 import { ReasoningBlock } from "@/components/ReasoningBlock";
@@ -89,6 +90,15 @@ export function MessageList({ items, modelName, streaming }: MessageListProps) {
           </motion.p>
         );
       })}
+      {streaming && items[items.length - 1]?.kind === "user" && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex items-center gap-2"
+        >
+          <ThinkingState />
+        </motion.div>
+      )}
     </div>
   );
 }

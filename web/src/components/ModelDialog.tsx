@@ -305,7 +305,7 @@ export function ModelDialog({
                     type="button"
                     onClick={() => {
                       setDraft(model.id);
-                      if (!model.reasoning) setEffort("auto");
+                      if (!model.reasoning || model.efforts.length === 0) setEffort("auto");
                     }}
                     className={`model-row mb-0.5 flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors ${
                       selected ? "bg-brand-soft ring-1 ring-brand/40" : "hover:bg-white/[0.04]"

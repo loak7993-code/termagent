@@ -318,7 +318,7 @@ impl Onboarding {
 
     pub fn effort_options(&self) -> Vec<Effort> {
         match &self.model {
-            Some(m) if m.reasoning => Effort::ALL.to_vec(),
+            Some(model) if model.reasoning && !model.efforts.is_empty() => Effort::ALL.to_vec(),
             _ => vec![Effort::Auto],
         }
     }

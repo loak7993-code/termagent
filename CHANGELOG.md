@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.0.7 - 2026-11-15
+
+### Added
+
+- Thinking support for toggle-only reasoning models: CoreWeave DeepSeek, OpenRouter
+  toggles, and similar gateways receive `reasoning: {"enabled": true}`. Effort values
+  are not sent to models that only expose a toggle.
+- Reasoning streams expanded while live in the browser, and a thinking indicator
+  appears before the first token in both UIs.
+- A retry without the toggle field when a gateway rejects it with 400.
+
+### Fixed
+
+- Auto effort no longer sends `reasoning_effort: medium` to toggle-only models, which
+  CoreWeave rejects with 400.
+- The effort picker shows only Auto for toggle-only models.
+
 ## 2.0.6 - 2026-11-15
 
 ### Fixed

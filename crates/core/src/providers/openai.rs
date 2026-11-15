@@ -5,7 +5,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::error::{Error, Result};
 use crate::providers::{http_error, sse, ChatOutcome, ChatRequest, ProviderSpec};
-use crate::types::{Delta, Message, Role, ToolCall, Usage};
+use crate::types::{Delta, Effort, Message, Role, ToolCall, Usage};
 
 pub async fn stream(
     spec: &ProviderSpec,
@@ -14,19 +14,25 @@ pub async fn stream(
     on_delta: &mut (dyn FnMut(Delta) + Send),
 ) -> Result<ChatOutcome> {
     let mut include_usage = true;
+    let mut include_toggle = req.reasoning && req.effort == Effort::Auto;
     loop {
-        let body = payload(req, include_usage);
+        let body = payload(req, include_usage, include_toggle);
         let resp = send(spec, &body, cancel).await?;
-        if resp.status().as_u16() == 400 && include_usage {
-            let status = resp.status();
+        let status = resp.status();
+        if status.as_u16() == 400 {
             let text = resp.text().await.unwrap_or_default();
-            if text.contains("stream_options") {
+            if include_usage && text.contains("stream_options") {
                 include_usage = false;
+                continue;
+            }
+            if include_toggle {
+                // Not every gateway understands the OpenRouter-style toggle.
+                include_toggle = false;
                 continue;
             }
             return Err(Error::api(status.as_u16(), text));
         }
-        if !resp.status().is_success() {
+        if !status.is_success() {
             return Err(http_error(resp).await);
         }
         return parse(resp, cancel, on_delta).await;
@@ -56,7 +62,7 @@ async fn send(
     }
 }
 
-fn payload(req: &ChatRequest, include_usage: bool) -> Value {
+fn payload(req: &ChatRequest, include_usage: bool, include_toggle: bool) -> Value {
     let mut body = json!({
         "model": req.model,
         "messages": req.messages.iter().map(openai_message).collect::<Vec<_>>(),
@@ -71,8 +77,11 @@ fn payload(req: &ChatRequest, include_usage: bool) -> Value {
     if include_usage {
         body["stream_options"] = json!({"include_usage": true});
     }
-    if req.reasoning {
+    // Toggle-only models reject effort values; ask for reasoning explicitly.
+    if req.reasoning && req.effort != Effort::Auto {
         body["reasoning_effort"] = json!(req.effort.api_value());
+    } else if req.reasoning && include_toggle {
+        body["reasoning"] = json!({"enabled": true});
     }
     body
 }

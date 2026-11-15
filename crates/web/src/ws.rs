@@ -266,7 +266,7 @@ async fn apply_model(
         cfg.model = model.clone();
         if let Some(effort) = effort {
             cfg.effort = effort;
-        } else if !m.reasoning {
+        } else if !m.reasoning || m.efforts.is_empty() {
             cfg.effort = Effort::Auto;
         }
         cfg.save().map_err(|e| e.to_string())?;

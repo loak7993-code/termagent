@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ThinkingState } from "@aicss/react/thinking-state";
 import { CaretDown } from "@phosphor-icons/react";
 
 export function ReasoningBlock({ text, live }: { text: string; live: boolean }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(live);
+  useEffect(() => {
+    if (live) setOpen(true);
+  }, [live]);
   return (
     <div className="overflow-hidden rounded-md bg-white/[0.02]">
       <button

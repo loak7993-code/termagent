@@ -1855,7 +1855,7 @@ dependencies = [
 
 [[package]]
 name = "termagent"
-version = "2.0.6"
+version = "2.0.7"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -1871,7 +1871,7 @@ dependencies = [
 
 [[package]]
 name = "termagent-core"
-version = "2.0.6"
+version = "2.0.7"
 dependencies = [
  "chrono",
  "dirs",
@@ -1893,7 +1893,7 @@ dependencies = [
 
 [[package]]
 name = "termagent-tui"
-version = "2.0.6"
+version = "2.0.7"
 dependencies = [
  "chrono",
  "crossterm",
@@ -1910,7 +1910,7 @@ dependencies = [
 
 [[package]]
 name = "termagent-web"
-version = "2.0.6"
+version = "2.0.7"
 dependencies = [
  "axum",
  "futures-util",

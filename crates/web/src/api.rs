@@ -181,7 +181,7 @@ async fn set_model(AxumState(state): AxumState<State>, Json(body): Json<ModelBod
         cfg.model = body.model.clone();
         if let Some(effort) = body.effort {
             cfg.effort = effort;
-        } else if !model.reasoning {
+        } else if !model.reasoning || model.efforts.is_empty() {
             cfg.effort = Effort::Auto;
         }
         if let Err(e) = cfg.save() {

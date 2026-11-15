@@ -227,6 +227,11 @@ Auto promotes a message to high when it contains code, task verbs (refactor, deb
 test, review), more than 400 characters, or after two tool rounds. Short requests stay
 low. The resolved level is visible as `Auto → High`.
 
+Toggle-only reasoning models, such as CoreWeave's DeepSeek endpoint, receive
+`reasoning: {"enabled": true}` instead of an effort value, and only Auto is offered.
+Their thinking streams into the reasoning block. If a gateway rejects the toggle field,
+termagent retries once without it.
+
 ## Tools and approvals
 
 | Tool | What it does | Risk |

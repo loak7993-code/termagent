@@ -99,7 +99,9 @@ fn draw_chat(f: &mut Frame, app: &App, area: Rect) {
         .map(|m| m.name.clone())
         .unwrap_or_else(|| app.cfg.model.clone());
     let effort = match (app.cfg.effort, app.chat.resolved) {
-        (Effort::Auto, Some(r)) => format!("auto→{}", r.label().to_lowercase()),
+        (Effort::Auto, Some(r)) if r != Effort::Auto => {
+            format!("auto→{}", r.label().to_lowercase())
+        }
         (e, _) => e.label().to_lowercase(),
     };
     let (status, status_style) = status_label(app);
@@ -373,6 +375,20 @@ fn feed_lines(chat: &ChatState, p: &Palette, width: usize, tick: usize) -> Vec<L
 
     if chat.items.is_empty() {
         lines.extend(empty_state(p, width));
+    }
+    if chat.status == Status::Streaming && matches!(chat.items.last(), Some(Item::User(_))) {
+        lines.push(Line::from(""));
+        lines.push(Line::from(vec![
+            Span::raw("  "),
+            Span::styled(
+                format!("{} ", util::spinner(tick)),
+                Style::default().fg(p.accent),
+            ),
+            Span::styled(
+                "thinking",
+                Style::default().fg(p.dim).add_modifier(Modifier::ITALIC),
+            ),
+        ]));
     }
     lines
 }
