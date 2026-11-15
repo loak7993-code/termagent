@@ -42,8 +42,9 @@ current and only models that support tool calling are offered.
 
 ## Install
 
-One command, no clone. It installs the toolchain when missing, downloads the source,
-builds, and installs the binary:
+One command, no clone. On Termux arm64 it downloads the prebuilt binary from the latest
+GitHub release, so nothing compiles on the phone. Other platforms build from source,
+installing the toolchain when missing:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/loak7993-code/termagent/main/install.sh | bash
@@ -59,7 +60,9 @@ cd termagent
 
 What it does:
 
-- Termux: `pkg install rust clang make`, then builds. No root.
+- Termux arm64: downloads `termagent-aarch64-linux-android` from the latest release and
+  installs it. No compiler, no Node, no root.
+- Termux other architectures: `pkg install rust clang make`, then builds. No root.
 - Debian, Ubuntu, Fedora, Arch: installs build packages and rustup with sudo if needed.
 - macOS: uses the Xcode command line tools and rustup.
 - Downloads the source tarball when the script is piped.
@@ -70,16 +73,25 @@ What it does:
 |---|---|
 | `--prefix DIR` | install into `DIR/bin` |
 | `--add-path` | append the install directory to your shell rc |
+| `--source` | always compile, skipping the prebuilt download |
 | `--no-bootstrap` | fail instead of installing a toolchain |
 | `--dry-run` | print the plan without changing anything |
 
 Useful environment variables: `TERMAGENT_PREFIX`, `TERMAGENT_SRC` (existing source tree),
 `TERMAGENT_JOBS` (build parallelism, for example `TERMAGENT_JOBS=2`).
 
-On a phone the build takes several minutes. The installer disables thin LTO and raises
-codegen units on Termux to keep memory use down; set `TERMAGENT_JOBS=1` on low-memory
-devices. Node is not needed: the browser client is committed and embedded by the Rust
-build.
+Release assets:
+
+| Asset | For |
+|---|---|
+| `termagent-aarch64-linux-android` | Termux on arm64 phones, Android 7+ |
+| `termagent-x86_64-linux-android` | Android emulators and Chromebooks |
+| `termagent-x86_64-unknown-linux-gnu` | desktop Linux, glibc 2.39 or newer |
+
+If the download is unavailable, the installer falls back to a source build. That takes
+several minutes on a phone. The installer disables thin LTO and raises codegen units on
+Termux to keep memory use down; set `TERMAGENT_JOBS=1` on low-memory devices. Node is
+not needed: the browser client is committed and embedded by the Rust build.
 
 Manual build, if you already have Rust stable (tested with 1.99):
 

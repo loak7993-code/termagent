@@ -11,6 +11,7 @@
 # Options:
 #   --prefix DIR     install into DIR/bin (default: ~/.local/bin, or $PREFIX/bin on Termux)
 #   --add-path       append the install dir to your shell rc when it is not on PATH
+#   --source         always compile from source (skip the prebuilt download)
 #   --no-bootstrap   fail instead of installing a toolchain
 #   --dry-run        print the plan without changing anything
 #   -h, --help       show this help
@@ -21,6 +22,7 @@
 #   TERMAGENT_REPO         GitHub repo, default loak7993-code/termagent
 #   TERMAGENT_REF          git ref for the source tarball, default main
 #   TERMAGENT_JOBS         cargo build jobs
+#   TERMAGENT_PREBUILT_URL override the release asset URL (testing or mirrors)
 set -eu
 
 REPO="${TERMAGENT_REPO:-loak7993-code/termagent}"
@@ -29,7 +31,9 @@ SOURCE_DIR="${TERMAGENT_SRC:-}"
 PREFIX_DIR="${TERMAGENT_PREFIX:-}"
 ADD_PATH=0
 BOOTSTRAP=1
+SOURCE_ONLY="${TERMAGENT_SOURCE:-0}"
 DRY_RUN="${TERMAGENT_DRY_RUN:-0}"
+PREBUILT_TMP=""
 ROOT=""
 TMP_DIR=""
 SUDO=""
@@ -66,6 +70,9 @@ cleanup() {
   if [ -n "$TMP_DIR" ] && [ -d "$TMP_DIR" ]; then
     rm -rf "$TMP_DIR"
   fi
+  if [ -n "$PREBUILT_TMP" ] && [ -f "$PREBUILT_TMP" ]; then
+    rm -f "$PREBUILT_TMP"
+  fi
 }
 trap cleanup EXIT INT TERM
 
@@ -82,6 +89,10 @@ while [ $# -gt 0 ]; do
       ;;
     --add-path)
       ADD_PATH=1
+      shift
+      ;;
+    --source)
+      SOURCE_ONLY=1
       shift
       ;;
     --no-bootstrap)
@@ -242,6 +253,64 @@ install_rust() {
   find_cargo || die "rustup finished but cargo is still missing"
 }
 
+# ---------------------------------------------------------------- prebuilt binary
+prebuilt_asset() {
+  [ "$SOURCE_ONLY" = "1" ] && return 1
+  [ "$TERMUX" = "1" ] || return 1
+  local arch="${TERMAGENT_ARCH:-$(uname -m)}"
+  case "$arch" in
+    aarch64|arm64) printf '%s' "termagent-aarch64-linux-android" ;;
+    x86_64|amd64) printf '%s' "termagent-x86_64-linux-android" ;;
+    *) return 1 ;;
+  esac
+}
+
+try_prebuilt() {
+  local asset
+  asset="$(prebuilt_asset)" || return 1
+  local url="${TERMAGENT_PREBUILT_URL:-https://github.com/$REPO/releases/latest/download/$asset}"
+  log "prebuilt binary: $asset (no compile)"
+  if [ "$DRY_RUN" = "1" ]; then
+    log "would download $url"
+    return 0
+  fi
+  install_curl
+  PREBUILT_TMP="$(mktemp)"
+  if ! curl -fsSL --retry 2 --connect-timeout 15 -o "$PREBUILT_TMP" "$url"; then
+    warn "prebuilt download failed; falling back to a source build"
+    return 1
+  fi
+  chmod 755 "$PREBUILT_TMP"
+  if ! "$PREBUILT_TMP" --version >/dev/null 2>&1; then
+    warn "prebuilt binary does not run on this device; falling back to a source build"
+    return 1
+  fi
+  mkdir -p "$DEST"
+  cp "$PREBUILT_TMP" "$DEST/termagent"
+  chmod 755 "$DEST/termagent"
+  return 0
+}
+
+report_install() {
+  local version
+  version="$("$DEST/termagent" --version)"
+  log "installed: $DEST/termagent ($version)"
+  case ":$PATH:" in
+    *":$DEST:"*) ;;
+    *)
+      if [ "$ADD_PATH" = "1" ]; then
+        add_to_path
+      else
+        warn "$DEST is not on PATH. Add it with:"
+        warn "  export PATH=\"$DEST:\$PATH\""
+        warn "or rerun with --add-path"
+      fi
+      ;;
+  esac
+  log "start with: termagent"
+  log "browser UI: termagent --web  (http://127.0.0.1:6033)"
+}
+
 # ---------------------------------------------------------------- build/install
 resolve_destination() {
   if [ -n "$PREFIX_DIR" ]; then
@@ -274,6 +343,19 @@ add_to_path() {
 main() {
   log "termagent installer ($OS$( [ "$TERMUX" = "1" ] && printf ', termux'))"
 
+  resolve_destination
+  if try_prebuilt; then
+    if [ "$DRY_RUN" = "1" ]; then
+      log "dry run complete"
+      return
+    fi
+    report_install
+    return
+  fi
+  if [ "$DRY_RUN" = "1" ] && [ "$SOURCE_ONLY" != "1" ] && [ "$TERMUX" = "1" ]; then
+    log "no prebuilt asset for this architecture; source build required"
+  fi
+
   resolve_source
   if [ -z "$ROOT" ] && [ "$DRY_RUN" = "1" ]; then
     resolve_destination
@@ -291,8 +373,6 @@ main() {
   fi
   CARGO="$(command -v cargo)"
   log "cargo: $CARGO"
-
-  resolve_destination
 
   local jobs="${TERMAGENT_JOBS:-}"
   if [ -z "$jobs" ]; then
@@ -319,26 +399,7 @@ main() {
   mkdir -p "$DEST"
   cp "$ROOT/target/release/termagent" "$DEST/termagent"
   chmod 755 "$DEST/termagent"
-
-  local version
-  version="$("$DEST/termagent" --version)"
-  log "installed: $DEST/termagent ($version)"
-
-  case ":$PATH:" in
-    *":$DEST:"*) ;;
-    *)
-      if [ "$ADD_PATH" = "1" ]; then
-        add_to_path
-      else
-        warn "$DEST is not on PATH. Add it with:"
-        warn "  export PATH=\"$DEST:\$PATH\""
-        warn "or rerun with --add-path"
-      fi
-      ;;
-  esac
-
-  log "start with: termagent"
-  log "browser UI: termagent --web  (http://127.0.0.1:6033)"
+  report_install
 }
 
 main

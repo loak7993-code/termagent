@@ -20,6 +20,9 @@ Rust rewrite. The Ink/TypeScript TUI is gone; one binary now serves both surface
 - Tool durations measured around execution, excluding approval wait.
 - WebSocket protocol with a per-boot token and origin check; REST API for sessions.
 - `--onboard`, `--list-models`, `--refresh`, `--session`, `--cwd`, `--port`.
+- One-command installer that bootstraps Termux, Linux, and macOS, downloads prebuilt
+  Termux binaries from GitHub releases, and falls back to a source build.
+- Custom OpenAI-compatible endpoints via a bare `--base-url`.
 
 ### Changed
 
