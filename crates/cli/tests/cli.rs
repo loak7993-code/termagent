@@ -8,7 +8,7 @@ fn version_prints_name_and_version() {
         .arg("--version")
         .assert()
         .success()
-        .stdout(predicate::str::contains("termagent 2.0.5"));
+        .stdout(predicate::str::contains("termagent 2.0.6"));
 }
 
 #[test]

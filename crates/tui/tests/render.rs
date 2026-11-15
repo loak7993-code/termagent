@@ -166,6 +166,20 @@ fn narrow_terminal_does_not_overflow() {
 }
 
 #[test]
+fn pasted_text_reaches_onboarding_fields() {
+    let mut app = app(Config::default());
+    app.paste("coreweave");
+    assert_eq!(app.onboarding.as_ref().unwrap().query.value(), "coreweave");
+    {
+        let ob = app.onboarding.as_mut().unwrap();
+        ob.provider = Some(app.registry.provider("wandb").unwrap().clone());
+        ob.step = termagent_tui::onboarding::Step::Key;
+    }
+    app.paste("sk-new-key");
+    assert_eq!(app.onboarding.as_ref().unwrap().key.value(), "sk-new-key");
+}
+
+#[test]
 fn forced_onboarding_starts_at_the_provider_list() {
     let registry = Registry::snapshot().unwrap();
     let (cmd_tx, _cmd_rx) = tokio::sync::mpsc::unbounded_channel::<Command>();

@@ -614,6 +614,21 @@ fn draw_key_step(f: &mut Frame, app: &App, ob: &Onboarding, area: Rect) {
         ]));
     }
     lines.push(Line::from(""));
+    let saved = ob
+        .provider
+        .as_ref()
+        .map(|provider| app.cfg.keys.contains_key(&provider.id))
+        .unwrap_or(false);
+    if saved {
+        lines.push(Line::from(vec![
+            Span::raw("  "),
+            Span::styled(
+                "A key is saved. Paste a new key to replace it, or press Enter to keep it.",
+                dim(p),
+            ),
+        ]));
+        lines.push(Line::from(""));
+    }
     lines.push(Line::from(vec![
         Span::styled("  Paste a key", base(p)),
         Span::styled(" (stored 0600 in ", dim(p)),
@@ -624,6 +639,7 @@ fn draw_key_step(f: &mut Frame, app: &App, ob: &Onboarding, area: Rect) {
         Span::styled(")", dim(p)),
     ]));
     lines.push(Line::from(""));
+    let key_row = lines.len() as u16;
     lines.push(Line::from(vec![
         Span::raw("  "),
         Span::styled(sym("›", ">"), accent(p)),
@@ -637,13 +653,12 @@ fn draw_key_step(f: &mut Frame, app: &App, ob: &Onboarding, area: Rect) {
             Span::styled(notice.clone(), Style::default().fg(p.warn)),
         ]));
     }
-    let key_row = area.y + 8;
     f.render_widget(
         Paragraph::new(Text::from(lines)).wrap(Wrap { trim: false }),
         area,
     );
     let x = area.x + 4 + word_width(&ob.key.masked()).min(area.width as usize) as u16;
-    f.set_cursor_position((x.min(area.x + area.width - 1), key_row));
+    f.set_cursor_position((x.min(area.x + area.width - 1), area.y + key_row));
 }
 
 fn draw_model_step(f: &mut Frame, app: &App, ob: &Onboarding, area: Rect) {

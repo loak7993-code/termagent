@@ -866,16 +866,39 @@ impl App {
 
 impl App {
     pub fn paste(&mut self, text: &str) {
-        if matches!(self.screen, Screen::Chat)
-            && self.overlay_is_none()
-            && self.chat.pending.is_none()
-        {
+        if matches!(self.screen, Screen::Onboarding) {
+            if let Some(ob) = self.onboarding.as_mut() {
+                match ob.step {
+                    crate::onboarding::Step::Provider | crate::onboarding::Step::Model => {
+                        ob.query.insert_str(text);
+                        ob.sel = 0;
+                    }
+                    crate::onboarding::Step::Key => ob.key.insert_str(text.trim()),
+                    crate::onboarding::Step::Effort => {}
+                }
+            }
+            return;
+        }
+        match &mut self.overlay {
+            Overlay::Models(picker) => {
+                match picker.pane {
+                    Pane::Providers => {
+                        picker.provider_query.insert_str(text);
+                        picker.provider_sel = 0;
+                    }
+                    Pane::Models => {
+                        picker.model_query.insert_str(text);
+                        picker.model_sel = 0;
+                    }
+                }
+                return;
+            }
+            Overlay::Sessions(_) | Overlay::Help => return,
+            Overlay::None => {}
+        }
+        if self.chat.pending.is_none() {
             self.input.insert_str(text);
         }
-    }
-
-    fn overlay_is_none(&self) -> bool {
-        matches!(self.overlay, Overlay::None)
     }
 
     pub fn theme_names_slice(&self) -> &[&'static str] {

@@ -271,9 +271,11 @@ export function Onboarding({
                 placeholder={
                   provider?.local
                     ? "Local endpoint, no key needed"
-                    : keyOptional
-                      ? "Key already available, leave empty"
-                      : `Paste your ${provider?.name ?? ""} key`
+                    : provider?.keySet
+                      ? "Paste a new key to replace the saved one"
+                      : provider?.envSet
+                        ? "Leave empty to use the environment key"
+                        : `Paste your ${provider?.name ?? ""} key`
                 }
                 className="h-10 rounded-md border-0 bg-white/[0.04] pl-9 text-[13px] focus-visible:ring-2 focus-visible:ring-brand/60"
               />
@@ -282,8 +284,10 @@ export function Onboarding({
               {provider?.local
                 ? "Talks to a server on this machine. No key is stored."
                 : provider?.envSet
-                  ? `${provider.env[0]} is set in your environment. Nothing is written to disk.`
-                  : "Written 0600 to the termagent config on this machine. Never sent anywhere else."}
+                  ? `${provider.env[0]} is set in your environment. A saved key overrides it.`
+                  : provider?.keySet
+                    ? "A key is saved. Pasting a new one replaces it."
+                    : "Written 0600 to the termagent config on this machine. Never sent anywhere else."}
             </p>
           </div>
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.0.6 - 2026-11-15
+
+### Fixed
+
+- Pasted text now reaches onboarding fields and overlay search boxes. On Termux a
+  pasted API key was previously dropped, so the old key kept being used and requests
+  stayed at 401.
+- Bracketed paste is enabled for the TUI lifetime and disabled on exit.
+- The key screen says when a saved key exists and that pasting replaces it.
+- The cursor sits on the key field regardless of the environment or saved-key notice.
+
 ## 2.0.5 - 2026-11-15
 
 ### Fixed
