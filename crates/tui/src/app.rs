@@ -223,9 +223,6 @@ impl App {
                     self.hydrate(&meta);
                 }
             }
-            TuiEvent::Info(msg) => {
-                self.chat.message(Item::Info(msg));
-            }
         }
     }
 

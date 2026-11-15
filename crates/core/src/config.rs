@@ -159,9 +159,18 @@ impl Config {
             return false;
         }
         match registry.provider(&self.provider) {
-            Some(p) => self.key_for(p).is_some(),
+            Some(provider) => self.key_for(provider).is_some() && self.project_ready(provider),
             None => !self.api_key.is_empty(),
         }
+    }
+
+    fn project_ready(&self, provider: &Provider) -> bool {
+        provider.id != "wandb"
+            || self
+                .project
+                .as_deref()
+                .map(|project| project.trim().contains('/'))
+                .unwrap_or(false)
     }
 
     /// Move a pre-per-provider key onto the provider it was saved for. Without

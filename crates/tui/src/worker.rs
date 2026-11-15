@@ -62,7 +62,6 @@ pub fn gate(approvals: Approvals) -> ApproveFn {
 pub enum TuiEvent {
     Agent(AgentEvent),
     Session(SessionMeta),
-    Info(String),
 }
 
 pub enum Command {
@@ -115,13 +114,9 @@ impl Worker {
     }
 
     pub async fn run(mut self, mut rx: UnboundedReceiver<Command>) {
-        if let Err(e) = self.start(None) {
-            let _ = self.ui.send(TuiEvent::Info(e.to_string()));
-            let _ = self.events.send(AgentEvent::Error(e.to_string()));
-        }
+        // The UI sends the first Start once a usable config exists.
         while let Some(cmd) = rx.recv().await {
             if let Err(e) = self.handle(cmd).await {
-                let _ = self.ui.send(TuiEvent::Info(e.to_string()));
                 let _ = self.events.send(AgentEvent::Error(e.to_string()));
             }
         }
@@ -140,10 +135,10 @@ impl Worker {
                 let result = agent.run_turn(&text, cancel).await;
                 let meta = agent.session.meta.clone();
                 let _ = self.ui.send(TuiEvent::Session(meta));
+                // The agent emits its own error event for stream and tool failures.
                 match result {
-                    Ok(()) => Ok(()),
-                    Err(Error::Cancelled) => Ok(()),
-                    Err(e) => Err(e),
+                    Ok(()) | Err(Error::Cancelled) => Ok(()),
+                    Err(_) => Ok(()),
                 }
             }
             Command::Reconfigure => {

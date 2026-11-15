@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.0.4 - 2026-11-15
+
+### Fixed
+
+- A CoreWeave config without a project now counts as unconfigured, so the TUI opens
+  the project step instead of starting an agent that fails with repeated errors.
+- Resuming a CoreWeave setup with a key but no project opens the project screen.
+- The TUI worker no longer starts before onboarding is complete, removing duplicate
+  startup errors and the follow-up `session is not ready` failure.
+
 ## 2.0.3 - 2026-11-15
 
 ### Fixed

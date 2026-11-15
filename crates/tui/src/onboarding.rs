@@ -74,6 +74,7 @@ impl Onboarding {
 
     pub fn resume(cfg: &Config, registry: &Registry) -> Self {
         let mut ob = Self::new(cfg);
+        ob.reconfigure = !cfg.provider.is_empty();
         let Some(provider) = registry.provider(&cfg.provider) else {
             return ob;
         };
@@ -81,6 +82,12 @@ impl Onboarding {
         ob.env_found = detected_env(provider);
         if cfg.key_for(provider).is_none() {
             ob.step = Step::Key;
+            return ob;
+        }
+        ob.project_value = cfg.project.clone().unwrap_or_default();
+        if requires_project(Some(provider)) && !ob.project_value.trim().contains('/') {
+            ob.project.set(&ob.project_value);
+            ob.step = Step::Project;
             return ob;
         }
         if let Some(model) = provider.models.iter().find(|m| m.id == cfg.model) {
@@ -441,6 +448,18 @@ mod tests {
         assert!(saved.base_url.is_none());
         assert!(saved.api_key.is_empty());
         assert_eq!(saved.keys.get("wandb").map(String::as_str), Some("sk-new"));
+    }
+
+    #[test]
+    fn resume_coreweave_asks_for_the_project() {
+        let registry = Registry::snapshot().unwrap();
+        let provider = registry.provider("wandb").unwrap();
+        let mut cfg = Config::default();
+        cfg.provider = "wandb".into();
+        cfg.model = provider.models[0].id.clone();
+        cfg.keys.insert("wandb".into(), "key".into());
+        let ob = Onboarding::resume(&cfg, &registry);
+        assert_eq!(ob.step, Step::Project);
     }
 
     #[test]
