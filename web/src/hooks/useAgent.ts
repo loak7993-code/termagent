@@ -223,7 +223,23 @@ export function useAgent(): AgentApi {
         case "session":
           if (event.session) {
             const session = event.session;
-            setSnapshot((prev) => (prev ? { ...prev, session } : prev));
+            setSnapshot((prev) => {
+              if (!prev) return prev;
+              const meta = {
+                id: session.id,
+                title: session.title,
+                created: session.created,
+                cwd: session.cwd,
+                provider: session.provider,
+                model: session.model,
+                effort: session.effort,
+              };
+              const exists = prev.sessions.some((entry) => entry.id === session.id);
+              const sessions = exists
+                ? prev.sessions.map((entry) => (entry.id === session.id ? { ...entry, ...meta } : entry))
+                : [meta, ...prev.sessions];
+              return { ...prev, session, sessions };
+            });
             if (session.events !== null) {
               setItems(itemsFromEvents(session.events));
               setBusy(false);

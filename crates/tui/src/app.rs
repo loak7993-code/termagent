@@ -193,6 +193,33 @@ impl App {
         app
     }
 
+    fn new_session(&mut self) {
+        let cwd = self
+            .chat
+            .session
+            .as_ref()
+            .map(|meta| std::path::PathBuf::from(&meta.cwd))
+            .or_else(|| std::env::current_dir().ok());
+        let Some(cwd) = cwd else {
+            self.chat
+                .message(Item::Error("cannot determine the workspace".into()));
+            return;
+        };
+        match Session::new(&cwd, &self.cfg.provider, &self.cfg.model, self.cfg.effort) {
+            Ok(session) => {
+                let meta = session.meta;
+                self.chat = ChatState::new(self.cfg.effort);
+                self.chat.session = Some(meta.clone());
+                self.chat.notice("new session");
+                let _ = self.commands.send(Command::LoadSession(meta.id));
+            }
+            Err(error) => {
+                self.chat
+                    .message(Item::Error(format!("could not create session: {error}")));
+            }
+        }
+    }
+
     fn start_chat(&mut self) {
         self.chat = ChatState::new(self.cfg.effort);
         self.screen = Screen::Chat;
@@ -211,16 +238,22 @@ impl App {
     fn handle_tui_event(&mut self, ev: TuiEvent) {
         match ev {
             TuiEvent::Agent(agent) => self.handle_agent_event(agent),
+            TuiEvent::Opened(meta) => {
+                self.chat.session = Some(meta.clone());
+                self.chat.status = Status::Idle;
+                self.hydrate(&meta);
+            }
             TuiEvent::Session(meta) => {
-                let changed = self
+                // A background turn finishing in another session must not pull
+                // the screen back to it.
+                if self
                     .chat
                     .session
                     .as_ref()
-                    .map(|current| current.id != meta.id)
-                    .unwrap_or(true);
-                self.chat.session = Some(meta.clone());
-                if changed || self.chat.items.is_empty() {
-                    self.hydrate(&meta);
+                    .map(|current| current.id == meta.id)
+                    .unwrap_or(false)
+                {
+                    self.chat.session = Some(meta);
                 }
             }
         }
@@ -744,8 +777,7 @@ impl App {
                 false
             }
             KeyCode::Char('n') => {
-                self.chat = ChatState::new(self.cfg.effort);
-                let _ = self.commands.send(Command::NewSession);
+                self.new_session();
                 false
             }
             KeyCode::Char('d') => {
@@ -793,11 +825,7 @@ impl App {
             "/help" | "/?" => self.overlay = Overlay::Help,
             "/model" | "/models" => self.open_models(),
             "/sessions" => self.open_sessions(),
-            "/new" | "/clear" => {
-                self.chat = ChatState::new(self.cfg.effort);
-                let _ = self.commands.send(Command::NewSession);
-                self.chat.notice("new session");
-            }
+            "/new" | "/clear" => self.new_session(),
             "/effort" if arg.is_empty() => self.cycle_effort(),
             "/effort" => match arg.parse::<Effort>() {
                 Ok(effort) => {

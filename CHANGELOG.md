@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.0.8 - 2026-11-15
+
+### Fixed
+
+- New sessions are created and written to disk immediately. Previously the request was
+  queued behind a running turn, so `/sessions` could show nothing yet.
+- A background turn finishing in its own session no longer pulls the UI back to that
+  session after you open a new one.
+- The browser session sidebar adds a newly created session right away instead of waiting
+  for the next refresh.
+
 ## 2.0.7 - 2026-11-15
 
 ### Added

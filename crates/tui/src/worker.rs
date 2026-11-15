@@ -61,6 +61,9 @@ pub fn gate(approvals: Approvals) -> ApproveFn {
 #[derive(Debug)]
 pub enum TuiEvent {
     Agent(AgentEvent),
+    /// The session that is now on screen (start, new, or explicit load).
+    Opened(SessionMeta),
+    /// Title or metadata update for the session already on screen.
     Session(SessionMeta),
 }
 
@@ -68,7 +71,6 @@ pub enum Command {
     Start(Config, Option<String>),
     Turn(String, CancellationToken),
     Reconfigure,
-    NewSession,
     LoadSession(String),
 }
 
@@ -93,8 +95,8 @@ impl Worker {
         )
     }
 
-    fn announce(&self, agent: &Agent) {
-        let _ = self.ui.send(TuiEvent::Session(agent.session.meta.clone()));
+    fn opened(&self, agent: &Agent) {
+        let _ = self.ui.send(TuiEvent::Opened(agent.session.meta.clone()));
     }
 
     fn start(&mut self, session_id: Option<String>) -> Result<(), Error> {
@@ -108,7 +110,7 @@ impl Worker {
             )?,
         };
         let agent = self.agent_for(session)?;
-        self.announce(&agent);
+        self.opened(&agent);
         self.agent = Some(agent);
         Ok(())
     }
@@ -149,11 +151,10 @@ impl Worker {
                 }
                 Ok(())
             }
-            Command::NewSession => self.start(None),
             Command::LoadSession(id) => {
                 let session = Session::open(&id)?;
                 let agent = self.agent_for(session)?;
-                self.announce(&agent);
+                self.opened(&agent);
                 self.agent = Some(agent);
                 Ok(())
             }

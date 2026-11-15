@@ -153,6 +153,10 @@ termagent --web                            # browser UI, port 6033
 Slash commands: `/model`, `/effort`, `/key`, `/sessions`, `/new`, `/theme`, `/config`,
 `/tools`, `/cwd`, `/compact`, `/help`, `/exit`.
 
+`/new` (or `ctrl+s` then `n`) creates a session immediately. A turn already running
+keeps going in the session where it started. Both sessions stay in `/sessions`, and
+switching between them does not delete anything.
+
 When a tool changes state, termagent asks:
 
 ```
