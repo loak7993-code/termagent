@@ -11,7 +11,6 @@ export interface ProviderInfo {
   keySet: boolean;
   local: boolean;
   envSet: boolean;
-  requiresProject: boolean;
   models: number;
   reasoningModels: number;
 }
@@ -58,7 +57,6 @@ export interface Snapshot {
   reasoning: boolean;
   efforts: string[];
   effort: Effort;
-  project: string | null;
   autoApprove: boolean;
   theme: string;
   providers: ProviderInfo[];

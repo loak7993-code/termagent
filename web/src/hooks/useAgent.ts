@@ -89,7 +89,6 @@ export interface AgentApi {
     provider: string;
     model: string;
     api_key: string;
-    project: string;
     effort: Effort;
   }) => Promise<void>;
   dismissBanner: () => void;
@@ -463,7 +462,6 @@ export function useAgent(): AgentApi {
       provider: string;
       model: string;
       api_key: string;
-      project: string;
       effort: Effort;
     }) => {
       const next = await api<Snapshot>("/api/onboard", {

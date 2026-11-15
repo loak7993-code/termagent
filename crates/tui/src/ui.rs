@@ -9,7 +9,7 @@ use termagent_core::types::{ApprovalRequest, Effort, Risk};
 use crate::app::{
     App, ChatState, Item, Live, ModelPicker, Overlay, Pane, Screen, SessionPicker, Status,
 };
-use crate::onboarding::{requires_project, Onboarding, Step};
+use crate::onboarding::{Onboarding, Step};
 use crate::theme::Palette;
 use crate::util::{self, ellipsize, sym, word_width, wrap};
 
@@ -454,7 +454,6 @@ fn draw_onboarding(f: &mut Frame, app: &App, area: Rect) {
     match ob.step {
         Step::Provider => draw_provider_step(f, app, ob, body),
         Step::Key => draw_key_step(f, app, ob, body),
-        Step::Project => draw_project_step(f, app, ob, body),
         Step::Model => draw_model_step(f, app, ob, body),
         Step::Effort => draw_effort_step(f, app, ob, body),
     }
@@ -462,7 +461,6 @@ fn draw_onboarding(f: &mut Frame, app: &App, area: Rect) {
     let hint = match ob.step {
         Step::Provider => "type to search a provider · ↑↓ choose · enter select · esc quit",
         Step::Key => "paste or type the key · enter continue · esc back",
-        Step::Project => "type team/project · enter continue · esc back",
         Step::Model => "type to filter models · ↑↓ choose · enter select · esc back",
         Step::Effort => "↑↓ choose reasoning effort · enter start · esc back",
     };
@@ -472,14 +470,11 @@ fn draw_onboarding(f: &mut Frame, app: &App, area: Rect) {
     );
 }
 
-fn step_entries(ob: &Onboarding) -> Vec<(Step, String)> {
+fn step_entries(_ob: &Onboarding) -> Vec<(Step, String)> {
     let mut entries = vec![
         (Step::Provider, "provider".to_string()),
         (Step::Key, "key".to_string()),
     ];
-    if requires_project(ob.provider.as_ref()) {
-        entries.push((Step::Project, "project".to_string()));
-    }
     entries.push((Step::Model, "model".to_string()));
     entries.push((Step::Effort, "effort".to_string()));
     entries
@@ -649,68 +644,6 @@ fn draw_key_step(f: &mut Frame, app: &App, ob: &Onboarding, area: Rect) {
     );
     let x = area.x + 4 + word_width(&ob.key.masked()).min(area.width as usize) as u16;
     f.set_cursor_position((x.min(area.x + area.width - 1), key_row));
-}
-
-fn draw_project_step(f: &mut Frame, app: &App, ob: &Onboarding, area: Rect) {
-    let p = &app.palette;
-    let area = body_area(area);
-    let name = ob
-        .provider
-        .as_ref()
-        .map(|provider| provider.name.clone())
-        .unwrap_or_default();
-    let mut lines = vec![
-        Line::from(vec![
-            Span::styled("Project for ", base(p)),
-            Span::styled(name, accent(p)),
-        ]),
-        Line::from(""),
-        Line::from(vec![
-            Span::raw("  "),
-            Span::styled(
-                "CoreWeave routes requests by team and project. Find both in Forge.",
-                dim(p),
-            ),
-        ]),
-        Line::from(vec![
-            Span::raw("  "),
-            Span::styled("Format: ", dim(p)),
-            Span::styled("team/project", base(p)),
-            Span::styled(" (sent as OpenAI-Project)", dim(p)),
-        ]),
-        Line::from(""),
-        Line::from(vec![
-            Span::raw("  "),
-            Span::styled(sym("›", ">"), accent(p)),
-            Span::raw(" "),
-            Span::styled(
-                if ob.project.is_empty() {
-                    "team/project".to_string()
-                } else {
-                    ob.project.value()
-                },
-                if ob.project.is_empty() {
-                    dim(p)
-                } else {
-                    base(p)
-                },
-            ),
-        ]),
-    ];
-    if let Some(notice) = &ob.notice {
-        lines.push(Line::from(""));
-        lines.push(Line::from(vec![
-            Span::raw("  "),
-            Span::styled(notice.clone(), Style::default().fg(p.warn)),
-        ]));
-    }
-    f.render_widget(
-        Paragraph::new(Text::from(lines)).wrap(Wrap { trim: false }),
-        area,
-    );
-    let x = area.x + 4 + word_width(&ob.project.value()).min(area.width as usize) as u16;
-    let y = area.y + 5;
-    f.set_cursor_position((x.min(area.x + area.width - 1), y));
 }
 
 fn draw_model_step(f: &mut Frame, app: &App, ob: &Onboarding, area: Rect) {

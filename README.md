@@ -197,8 +197,9 @@ result for 24 hours.
 Cloud IAM providers (Amazon Bedrock, Google Vertex, Azure, GitHub Copilot) are excluded
 because they cannot be set up with a single API key.
 
-CoreWeave (W&B Inference) needs its Forge team and project in addition to the key. The
-wizard asks for it as `team/project`, and requests send `OpenAI-Project`. From the CLI:
+CoreWeave (W&B Inference) works with only an API key. If your account needs requests
+routed through a specific Forge project, set it as `team/project`; requests then send
+`OpenAI-Project`. This is optional:
 
 ```sh
 termagent --project your-team/your-project
@@ -268,7 +269,7 @@ API keys, cloud credentials, and SSH agent sockets are removed.
 | `--provider <id>` | override the provider |
 | `-m, --model <id>` | override the model |
 | `-b, --base-url <url>` | custom OpenAI-compatible endpoint |
-| `--project <team/project>` | CoreWeave and W&B Inference project |
+| `--project <team/project>` | optional CoreWeave and W&B project |
 | `-k, --api-key <key>` | key for this run; prefer environment variables |
 | `--effort <level>` | auto, low, medium, high, max |
 | `-c, --cwd <dir>` | workspace directory |
@@ -302,8 +303,8 @@ Or inside the TUI: `/key`. In the browser UI, open the gear button, choose the p
 and paste a new key. Config keys override environment variables.
 
 Common causes: a key from a different provider, a truncated paste, a revoked key, a
-stale export in the shell, or a provider that needs more than a key. CoreWeave also needs
-`team/project`; `termagent --status` prints it when set.
+stale export in the shell. CoreWeave can optionally use a `team/project`; `termagent
+--status` prints it when set.
 
 ## Configuration
 
@@ -324,7 +325,7 @@ Files live in `$TERMAGENT_CONFIG_DIR`, default `~/.config/termagent`:
 | `TERMAGENT_PROVIDER` | provider id |
 | `TERMAGENT_MODEL` | model id |
 | `TERMAGENT_BASE_URL` | custom API base URL |
-| `TERMAGENT_PROJECT` / `OPENAI_PROJECT` | CoreWeave team/project |
+| `TERMAGENT_PROJECT` / `OPENAI_PROJECT` | optional CoreWeave team/project |
 | `TERMAGENT_API_KEY` | key for the active provider |
 | `TERMAGENT_EFFORT` | auto, low, medium, high, max |
 | `TERMAGENT_THEME` | TUI theme |

@@ -106,14 +106,12 @@ fn keys_are_scoped_to_one_provider() {
 }
 
 #[test]
-fn coreweave_is_not_configured_without_a_project() {
+fn coreweave_is_configured_without_a_project() {
     let reg = Registry::snapshot().unwrap();
     let mut cfg = Config::default();
     cfg.provider = "wandb".into();
     cfg.model = "deepseek-ai/DeepSeek-V4.1-Flash-1017".into();
     cfg.keys.insert("wandb".into(), "key".into());
-    assert!(!cfg.is_configured(&reg));
-    cfg.project = Some("acme/agent".into());
     assert!(cfg.is_configured(&reg));
 }
 

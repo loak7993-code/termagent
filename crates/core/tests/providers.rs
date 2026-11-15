@@ -139,7 +139,7 @@ async fn cancellation_wins_before_request() {
 }
 
 #[test]
-fn coreweave_requires_a_project() {
+fn coreweave_project_is_optional() {
     let registry = Registry::snapshot().unwrap();
     let provider = registry.provider("wandb").expect("wandb provider");
     let mut cfg = Config {
@@ -148,7 +148,8 @@ fn coreweave_requires_a_project() {
         ..Config::default()
     };
     cfg.keys.insert("wandb".into(), "key".into());
-    assert!(ProviderSpec::resolve(provider, &cfg).is_err());
+    let spec = ProviderSpec::resolve(provider, &cfg).unwrap();
+    assert!(spec.project.is_none());
     cfg.project = Some("acme/agent".into());
     let spec = ProviderSpec::resolve(provider, &cfg).unwrap();
     assert_eq!(spec.project.as_deref(), Some("acme/agent"));

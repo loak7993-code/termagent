@@ -117,10 +117,11 @@ async fn onboard(AxumState(state): AxumState<State>, Json(body): Json<OnboardBod
         .base_url
         .filter(|base| !base.trim().is_empty())
         .map(|base| base.trim().to_string());
-    cfg.project = body
-        .project
-        .filter(|project| !project.trim().is_empty())
-        .map(|project| project.trim().to_string());
+    if let Some(project) = body.project.filter(|project| !project.trim().is_empty()) {
+        cfg.project = Some(project.trim().to_string());
+    } else if cfg.provider != body.provider {
+        cfg.project = None;
+    }
     if cfg.key_for(provider).is_none() {
         return bad(
             StatusCode::BAD_REQUEST,

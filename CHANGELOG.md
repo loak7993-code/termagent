@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.5 - 2026-11-15
+
+### Fixed
+
+- CoreWeave / W&B Inference works with only an API key. The team/project requirement and
+  its wizard step were wrong; the project is optional again and stays available through
+  `--project`, `TERMAGENT_PROJECT`, and `OPENAI_PROJECT`.
+- A missing project no longer blocks startup or forces onboarding.
+
 ## 2.0.4 - 2026-11-15
 
 ### Fixed

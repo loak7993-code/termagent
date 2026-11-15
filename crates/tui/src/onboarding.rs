@@ -25,7 +25,6 @@ pub const POPULAR: &[&str] = &[
 pub enum Step {
     Provider,
     Key,
-    Project,
     Model,
     Effort,
 }
@@ -39,7 +38,6 @@ pub struct Onboarding {
     pub step: Step,
     pub query: TextInput,
     pub key: TextInput,
-    pub project: TextInput,
     pub sel: usize,
     pub offset: usize,
     pub provider: Option<Provider>,
@@ -48,17 +46,15 @@ pub struct Onboarding {
     pub env_found: Option<String>,
     pub notice: Option<String>,
     pub key_value: String,
-    pub project_value: String,
     pub reconfigure: bool,
 }
 
 impl Onboarding {
-    pub fn new(cfg: &Config) -> Self {
+    pub fn new(_cfg: &Config) -> Self {
         Onboarding {
             step: Step::Provider,
             query: TextInput::default(),
             key: TextInput::default(),
-            project: TextInput::default(),
             sel: 0,
             offset: 0,
             provider: None,
@@ -67,7 +63,6 @@ impl Onboarding {
             env_found: None,
             notice: None,
             key_value: String::new(),
-            project_value: cfg.project.clone().unwrap_or_default(),
             reconfigure: false,
         }
     }
@@ -82,12 +77,6 @@ impl Onboarding {
         ob.env_found = detected_env(provider);
         if cfg.key_for(provider).is_none() {
             ob.step = Step::Key;
-            return ob;
-        }
-        ob.project_value = cfg.project.clone().unwrap_or_default();
-        if requires_project(Some(provider)) && !ob.project_value.trim().contains('/') {
-            ob.project.set(&ob.project_value);
-            ob.step = Step::Project;
             return ob;
         }
         if let Some(model) = provider.models.iter().find(|m| m.id == cfg.model) {
@@ -255,12 +244,7 @@ impl Onboarding {
                         self.query.clear();
                         self.sel = 0;
                         self.notice = None;
-                        if requires_project(self.provider.as_ref()) {
-                            self.project.set(&self.project_value);
-                            self.step = Step::Project;
-                        } else {
-                            self.step = Step::Model;
-                        }
+                        self.step = Step::Model;
                     }
                     KeyCode::Backspace => self.key.backspace(),
                     KeyCode::Delete => self.key.delete(),
@@ -270,34 +254,6 @@ impl Onboarding {
                     KeyCode::End => self.key.end(),
                     KeyCode::Char('v') if ctrl => {}
                     KeyCode::Char(c) if !ctrl => self.key.insert(c),
-                    _ => {}
-                }
-                None
-            }
-            Step::Project => {
-                match key.code {
-                    KeyCode::Esc => {
-                        self.key.set(&self.key_value);
-                        self.notice = None;
-                        self.step = Step::Key;
-                    }
-                    KeyCode::Enter => {
-                        let project = self.project.value().trim().to_string();
-                        if project.is_empty() || !project.contains('/') {
-                            self.notice = Some("use team/project, for example acme/agent".into());
-                            return None;
-                        }
-                        self.project_value = project;
-                        self.notice = None;
-                        self.step = Step::Model;
-                    }
-                    KeyCode::Backspace => self.project.backspace(),
-                    KeyCode::Delete => self.project.delete(),
-                    KeyCode::Left => self.project.left(),
-                    KeyCode::Right => self.project.right(),
-                    KeyCode::Home => self.project.home(),
-                    KeyCode::End => self.project.end(),
-                    KeyCode::Char(c) if !ctrl => self.project.insert(c),
                     _ => {}
                 }
                 None
@@ -383,12 +339,8 @@ impl Onboarding {
         cfg.effort = self.chosen_effort();
         cfg.base_url = None;
         cfg.api_key.clear();
-        cfg.project = if requires_project(Some(provider)) {
-            let project = self.project_value.trim();
-            if project.is_empty() {
-                return None;
-            }
-            Some(project.to_string())
+        cfg.project = if provider.id == "wandb" {
+            base.project.clone()
         } else {
             None
         };
@@ -400,10 +352,6 @@ impl Onboarding {
         }
         Some(Action::Saved(cfg))
     }
-}
-
-pub fn requires_project(provider: Option<&Provider>) -> bool {
-    provider.map(|p| p.id == "wandb").unwrap_or(false)
 }
 
 fn detected_env(provider: &Provider) -> Option<String> {
@@ -438,28 +386,16 @@ mod tests {
         let mut cfg = Config::default();
         cfg.base_url = Some("http://127.0.0.1:9/old".into());
         cfg.api_key = "legacy".into();
+        cfg.project = Some("acme/agent".into());
         let mut ob = Onboarding::new(&cfg);
         ob.provider = Some(provider);
         ob.model = Some(model);
         ob.key_value = "sk-new".into();
-        ob.project_value = "acme/agent".into();
         let saved = saved(ob, &cfg);
         assert_eq!(saved.project.as_deref(), Some("acme/agent"));
         assert!(saved.base_url.is_none());
         assert!(saved.api_key.is_empty());
         assert_eq!(saved.keys.get("wandb").map(String::as_str), Some("sk-new"));
-    }
-
-    #[test]
-    fn resume_coreweave_asks_for_the_project() {
-        let registry = Registry::snapshot().unwrap();
-        let provider = registry.provider("wandb").unwrap();
-        let mut cfg = Config::default();
-        cfg.provider = "wandb".into();
-        cfg.model = provider.models[0].id.clone();
-        cfg.keys.insert("wandb".into(), "key".into());
-        let ob = Onboarding::resume(&cfg, &registry);
-        assert_eq!(ob.step, Step::Project);
     }
 
     #[test]
@@ -473,7 +409,6 @@ mod tests {
         ob.provider = Some(provider);
         ob.model = Some(model);
         ob.key_value = "sk-ant".into();
-        ob.project_value = "acme/agent".into();
         let saved = saved(ob, &cfg);
         assert!(saved.project.is_none());
     }
