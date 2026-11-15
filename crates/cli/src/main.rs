@@ -7,7 +7,7 @@ use termagent_core::registry::{Model, Protocol, Provider};
 use termagent_core::session::Session;
 use termagent_core::tools::ApproveFn;
 use termagent_core::types::AgentEvent;
-use termagent_core::{Agent, Config, Effort, Registry};
+use termagent_core::{Agent, Config, Effort, Registry, VERSION};
 use tokio::sync::mpsc::unbounded_channel;
 use tokio_util::sync::CancellationToken;
 
@@ -76,6 +76,10 @@ struct Cli {
     /// Refresh the models.dev registry
     #[arg(long)]
     refresh: bool,
+
+    /// Show provider, model, key source, and paths without running a turn
+    #[arg(long)]
+    status: bool,
 }
 
 fn main() -> ExitCode {
@@ -163,6 +167,10 @@ fn run(cli: Cli) -> termagent_core::Result<()> {
             });
             cfg.provider = "custom".into();
         }
+    }
+
+    if cli.status {
+        return print_status(&cfg, &registry, &cwd);
     }
 
     if cli.list_models {
@@ -282,4 +290,93 @@ fn print_line(line: &str) {
     use std::io::Write;
     let mut out = std::io::stdout();
     let _ = writeln!(out, "{line}");
+}
+
+fn print_status(
+    cfg: &Config,
+    registry: &Registry,
+    cwd: &std::path::Path,
+) -> termagent_core::Result<()> {
+    print_line(&format!("termagent {VERSION}"));
+    print_line(&format!("config: {}", Config::path().display()));
+    print_line(&format!("workspace: {}", cwd.display()));
+
+    let provider = registry.provider(&cfg.provider);
+    match provider {
+        Some(provider) => {
+            print_line(&format!("provider: {} ({})", provider.name, provider.id));
+            print_line(&format!(
+                "endpoint: {}",
+                cfg.base_url.as_deref().unwrap_or(&provider.api)
+            ));
+            print_line(&format!("key: {}", key_source(cfg, provider)));
+        }
+        None => print_line("provider: (not configured)"),
+    }
+    print_line(&format!(
+        "model: {}",
+        if cfg.model.is_empty() {
+            "(not configured)"
+        } else {
+            &cfg.model
+        }
+    ));
+    print_line(&format!("effort: {}", cfg.effort.label().to_lowercase()));
+    print_line(&format!(
+        "auto-approve: {}",
+        if cfg.auto_approve { "on" } else { "off" }
+    ));
+    print_line(&format!(
+        "registry: {} · {} providers · {} models",
+        registry.source,
+        registry.providers.len(),
+        registry.total_models()
+    ));
+    Ok(())
+}
+
+fn key_source(cfg: &Config, provider: &termagent_core::Provider) -> String {
+    if let Some(key) = cfg.keys.get(&provider.id) {
+        if !key.trim().is_empty() {
+            return format!("configured (config, {})", mask_key(key));
+        }
+    }
+    if cfg.provider == provider.id && !cfg.api_key.is_empty() {
+        return format!("configured (config, legacy, {})", mask_key(&cfg.api_key));
+    }
+    if cfg.provider == provider.id {
+        if let Ok(value) = std::env::var("TERMAGENT_API_KEY") {
+            if !value.is_empty() {
+                return format!("configured (TERMAGENT_API_KEY, {})", mask_key(&value));
+            }
+        }
+    }
+    for var in &provider.env {
+        if let Ok(value) = std::env::var(var) {
+            if !value.is_empty() {
+                return format!("configured ({var}, {})", mask_key(&value));
+            }
+        }
+    }
+    if provider.api.contains("127.0.0.1") || provider.api.contains("localhost") {
+        return "not needed (local endpoint)".into();
+    }
+    "missing".into()
+}
+
+fn mask_key(key: &str) -> String {
+    let chars: Vec<char> = key.trim().chars().collect();
+    if chars.len() <= 8 {
+        return "set (short)".into();
+    }
+    let head: String = chars.iter().take(4).collect();
+    let tail: String = chars
+        .iter()
+        .rev()
+        .take(4)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
+    format!("{head}...{tail}")
 }

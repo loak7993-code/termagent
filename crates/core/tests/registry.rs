@@ -106,6 +106,41 @@ fn keys_are_scoped_to_one_provider() {
 }
 
 #[test]
+fn legacy_key_migrates_and_does_not_follow_a_provider_switch() {
+    let reg = Registry::snapshot().unwrap();
+    let mut cfg = Config::default();
+    cfg.provider = "anthropic".into();
+    cfg.api_key = "  Bearer \"sk-ant-one\" ".into();
+    cfg.migrate_legacy_key();
+    assert_eq!(cfg.api_key, "");
+    assert_eq!(
+        cfg.keys.get("anthropic").map(String::as_str),
+        Some("sk-ant-one")
+    );
+    assert_eq!(
+        cfg.direct_key(reg.provider("anthropic").unwrap())
+            .as_deref(),
+        Some("sk-ant-one")
+    );
+    cfg.provider = "openai".into();
+    assert!(cfg.direct_key(reg.provider("openai").unwrap()).is_none());
+}
+
+#[test]
+fn pasted_key_prefixes_and_quotes_are_cleaned() {
+    let reg = Registry::snapshot().unwrap();
+    let mut cfg = Config::default();
+    cfg.provider = "anthropic".into();
+    cfg.keys
+        .insert("anthropic".into(), "  'Bearer sk-ant-two'  ".into());
+    assert_eq!(
+        cfg.direct_key(reg.provider("anthropic").unwrap())
+            .as_deref(),
+        Some("sk-ant-two")
+    );
+}
+
+#[test]
 fn env_key_counts_as_configured() {
     let reg = Registry::snapshot().unwrap();
     let provider = reg.provider("anthropic").unwrap();

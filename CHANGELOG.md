@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.0.2 - 2026-11-15
+
+### Fixed
+
+- A legacy single key no longer follows a provider switch, and pasted keys are cleaned
+  of quotes, whitespace, and a leading `Bearer ` before use.
+- Onboarding and provider changes clear a leftover custom base URL, so a key is no
+  longer sent to the previous endpoint.
+- Environment keys are checked before the legacy runtime key.
+
+### Added
+
+- `termagent --status`: provider, model, effort, endpoint, registry, paths, and the key
+  source with a masked value.
+- `/key` in the TUI and a key replacement screen that keeps the current provider.
+- Auth failures now name the provider and model and say how to replace the key.
+
 ## 2.0.1 - 2026-11-15
 
 ### Fixed

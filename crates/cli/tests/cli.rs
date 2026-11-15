@@ -8,7 +8,7 @@ fn version_prints_name_and_version() {
         .arg("--version")
         .assert()
         .success()
-        .stdout(predicate::str::contains("termagent 2.0.1"));
+        .stdout(predicate::str::contains("termagent 2.0.2"));
 }
 
 #[test]
@@ -109,4 +109,39 @@ fn onboard_without_a_tty_explains_the_options() {
         .failure()
         .stderr(predicate::str::contains("interactive terminal"))
         .stderr(predicate::str::contains("--web"));
+}
+
+#[test]
+fn status_reports_missing_setup() {
+    let dir = tempfile::tempdir().unwrap();
+    Command::cargo_bin("termagent")
+        .unwrap()
+        .env("TERMAGENT_CONFIG_DIR", dir.path())
+        .arg("--status")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("provider: (not configured)"))
+        .stdout(predicate::str::contains("model: (not configured)"));
+}
+
+#[test]
+fn status_masks_the_stored_key() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = serde_json::json!({
+        "provider": "anthropic",
+        "model": "claude-fable-5-2",
+        "effort": "auto",
+        "keys": {"anthropic": "sk-ant-very-secret-key-value"}
+    });
+    std::fs::write(dir.path().join("config.json"), config.to_string()).unwrap();
+    let output = Command::cargo_bin("termagent")
+        .unwrap()
+        .env("TERMAGENT_CONFIG_DIR", dir.path())
+        .arg("--status")
+        .assert()
+        .success();
+    let text = String::from_utf8_lossy(&output.get_output().stdout).to_string();
+    assert!(text.contains("provider: Anthropic"), "{text}");
+    assert!(text.contains("configured (config, sk-a...alue)"), "{text}");
+    assert!(!text.contains("sk-ant-very-secret-key-value"), "{text}");
 }

@@ -203,3 +203,13 @@ fn resume_asks_for_a_missing_key_before_effort() {
     assert!(screen.contains("Connect Anthropic"), "{screen}");
     assert!(screen.contains("Paste a key"), "{screen}");
 }
+
+#[test]
+fn key_command_jumps_to_the_key_field() {
+    let registry = Registry::snapshot().unwrap();
+    let cfg = configured();
+    let ob = termagent_tui::onboarding::Onboarding::key_only(&cfg, &registry);
+    assert_eq!(ob.step, termagent_tui::onboarding::Step::Key);
+    assert!(ob.provider.is_some());
+    assert!(ob.notice.as_deref().unwrap_or("").contains("new key"));
+}

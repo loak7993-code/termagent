@@ -1039,6 +1039,7 @@ fn draw_help(f: &mut Frame, app: &App, area: Rect) {
         ("/sessions", "sessions"),
         ("/new", "fresh session"),
         ("/config", "re-run onboarding"),
+        ("/key", "replace the API key"),
         ("/tools", "list tools"),
         ("/theme <name>", "switch theme"),
     ];

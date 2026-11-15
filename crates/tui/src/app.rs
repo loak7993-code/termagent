@@ -634,6 +634,12 @@ impl App {
                     let model = models.get(picker.model_sel).cloned();
                     let provider = providers.get(picker.provider_sel).map(|p| p.id.clone());
                     if let (Some(model), Some(provider)) = (model, provider) {
+                        if self.cfg.provider != provider {
+                            if provider != "custom" {
+                                self.cfg.base_url = None;
+                            }
+                            self.cfg.api_key.clear();
+                        }
                         self.cfg.provider = provider;
                         self.cfg.model = model.id.clone();
                         if !model.reasoning {
@@ -802,7 +808,12 @@ impl App {
                 }
             }
             "/config" | "/onboard" => {
-                self.onboarding = Some(Onboarding::resume(&self.cfg, &self.registry));
+                self.onboarding = Some(Onboarding::fresh(&self.cfg, &self.registry));
+                self.onboarding_back = true;
+                self.screen = Screen::Onboarding;
+            }
+            "/key" => {
+                self.onboarding = Some(Onboarding::key_only(&self.cfg, &self.registry));
                 self.onboarding_back = true;
                 self.screen = Screen::Onboarding;
             }
@@ -827,7 +838,7 @@ impl App {
             }
             "/exit" | "/quit" => self.should_quit = true,
             other => {
-                let hint = "commands: /model /effort /sessions /new /theme /config /tools /cwd /help /exit";
+                let hint = "commands: /model /effort /key /sessions /new /theme /config /tools /cwd /help /exit";
                 self.chat
                     .message(Item::Info(format!("unknown command {other}. {hint}")));
             }

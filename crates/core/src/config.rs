@@ -96,6 +96,7 @@ impl Config {
             Config::default()
         };
         cfg.apply_env();
+        cfg.migrate_legacy_key();
         Ok(cfg)
     }
 
@@ -104,7 +105,9 @@ impl Config {
         fs::create_dir_all(&dir)?;
         let path = Self::path();
         let tmp = dir.join("config.json.tmp");
-        let body = serde_json::to_vec_pretty(self)?;
+        let mut stored = self.clone();
+        stored.migrate_legacy_key();
+        let body = serde_json::to_vec_pretty(&stored)?;
         fs::write(&tmp, body)?;
         restrict(&tmp)?;
         fs::rename(&tmp, &path)?;
@@ -152,29 +155,44 @@ impl Config {
         }
     }
 
-    /// A real credential for this provider: stored key, the legacy key for the
-    /// active provider, or one of the provider's environment variables.
+    /// Move a pre-per-provider key onto the provider it was saved for. Without
+    /// this a key from provider A could follow the config to provider B.
+    pub fn migrate_legacy_key(&mut self) {
+        if self.api_key.trim().is_empty() || self.provider.is_empty() {
+            return;
+        }
+        if let Some(key) = normalize_key(&self.api_key) {
+            self.keys.entry(self.provider.clone()).or_insert(key);
+        }
+        self.api_key.clear();
+    }
+
+    /// A real credential for this provider: its stored key, then the provider's
+    /// environment variable, then the legacy runtime key. Values are cleaned so
+    /// a pasted "Bearer " prefix or stray quotes cannot break the header.
     pub fn direct_key(&self, provider: &Provider) -> Option<String> {
-        if let Some(key) = self.keys.get(&provider.id) {
-            if !key.trim().is_empty() {
-                return Some(key.clone());
-            }
-        }
-        if self.provider == provider.id && !self.api_key.is_empty() {
-            return Some(self.api_key.clone());
-        }
-        if self.provider == provider.id {
-            if let Ok(v) = env::var("TERMAGENT_API_KEY") {
-                if !v.is_empty() {
-                    return Some(v);
-                }
-            }
+        if let Some(key) = self
+            .keys
+            .get(&provider.id)
+            .and_then(|key| normalize_key(key))
+        {
+            return Some(key);
         }
         for var in &provider.env {
-            if let Ok(v) = env::var(var) {
-                if !v.is_empty() {
-                    return Some(v);
+            if let Ok(value) = env::var(var) {
+                if let Some(key) = normalize_key(&value) {
+                    return Some(key);
                 }
+            }
+        }
+        if self.provider == provider.id {
+            if let Ok(value) = env::var("TERMAGENT_API_KEY") {
+                if let Some(key) = normalize_key(&value) {
+                    return Some(key);
+                }
+            }
+            if let Some(key) = normalize_key(&self.api_key) {
+                return Some(key);
             }
         }
         None
@@ -196,6 +214,24 @@ impl Config {
             return self.system.clone();
         }
         default_system_prompt()
+    }
+}
+
+fn normalize_key(raw: &str) -> Option<String> {
+    let mut key = raw.trim();
+    for _ in 0..2 {
+        if let Some(rest) = key
+            .strip_prefix("Bearer ")
+            .or_else(|| key.strip_prefix("bearer "))
+        {
+            key = rest.trim();
+        }
+        key = key.trim_matches('"').trim_matches('\'').trim();
+    }
+    if key.is_empty() {
+        None
+    } else {
+        Some(key.to_string())
     }
 }
 

@@ -255,6 +255,12 @@ async fn apply_model(
     };
     {
         let mut cfg = state.cfg.write().await;
+        if cfg.provider != provider {
+            if provider != "custom" {
+                cfg.base_url = None;
+            }
+            cfg.api_key.clear();
+        }
         cfg.provider = provider.clone();
         cfg.model = model.clone();
         if let Some(effort) = effort {

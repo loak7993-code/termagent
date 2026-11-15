@@ -150,7 +150,7 @@ termagent --web                            # browser UI, port 6033
 | `f1` | help |
 | `ctrl+c` | quit |
 
-Slash commands: `/model`, `/effort`, `/sessions`, `/new`, `/theme`, `/config`,
+Slash commands: `/model`, `/effort`, `/key`, `/sessions`, `/new`, `/theme`, `/config`,
 `/tools`, `/cwd`, `/compact`, `/help`, `/exit`.
 
 When a tool changes state, termagent asks:
@@ -268,7 +268,33 @@ API keys, cloud credentials, and SSH agent sockets are removed.
 | `-a, --auto-approve` | skip medium-risk approvals |
 | `--list-models` | print configured providers and their first models |
 | `--refresh` | refresh the models.dev registry |
+| `--status` | provider, model, key source, endpoint, registry, paths |
 | `--version`, `--help` | version and usage |
+
+## Authentication errors
+
+A `401` or `403` means the provider rejected the key. It is not a network failure.
+
+```sh
+termagent --status
+```
+
+That prints the provider, model, endpoint, and key source, with the key masked. The
+source tells you what to change: `config` is a key saved by onboarding, an environment
+variable name means the key came from your shell, and `missing` means no key exists for
+that provider.
+
+Replace it:
+
+```sh
+termagent --onboard        # provider, then key
+```
+
+Or inside the TUI: `/key`. In the browser UI, open the gear button, choose the provider,
+and paste a new key. Config keys override environment variables.
+
+Common causes: a key from a different provider, a truncated paste, a revoked key, or a
+stale export in the shell.
 
 ## Configuration
 

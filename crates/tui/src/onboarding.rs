@@ -88,6 +88,22 @@ impl Onboarding {
         ob
     }
 
+    /// Jump straight to the key field for the current provider.
+    pub fn key_only(cfg: &Config, registry: &Registry) -> Self {
+        let mut ob = Self::resume(cfg, registry);
+        ob.reconfigure = true;
+        let Some(provider) = registry.provider(&cfg.provider) else {
+            return Self::fresh(cfg, registry);
+        };
+        ob.provider = Some(provider.clone());
+        ob.env_found = detected_env(provider);
+        ob.key.clear();
+        ob.key_value.clear();
+        ob.notice = Some(format!("paste a new key for {}", provider.name));
+        ob.step = Step::Key;
+        ob
+    }
+
     /// Start at the provider list for an explicit `--onboard`, even when a
     /// half-configured file exists, with the current provider preselected.
     pub fn fresh(cfg: &Config, registry: &Registry) -> Self {

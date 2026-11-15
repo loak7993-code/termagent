@@ -170,7 +170,11 @@ async fn onboarding_requires_a_key_then_succeeds() {
     std::env::remove_var("ANTHROPIC_API_KEY");
     let registry = Registry::snapshot().unwrap();
     let cwd = tempfile::tempdir().unwrap();
-    let st = build_state(Config::default(), registry, cwd.path().to_path_buf(), 6033);
+    let cfg = Config {
+        base_url: Some("http://127.0.0.1:9/old".into()),
+        ..Config::default()
+    };
+    let st = build_state(cfg, registry, cwd.path().to_path_buf(), 6033);
     let body = serde_json::json!({"provider":"anthropic","model":"claude-fable-5-2"}).to_string();
     let req = Request::builder()
         .method("POST")
@@ -196,6 +200,11 @@ async fn onboarding_requires_a_key_then_succeeds() {
     let (status, text) = call(&st, req).await;
     assert_eq!(status, StatusCode::OK, "{text}");
     assert!(text.contains("\"configured\":true"));
+    let saved = Config::load().unwrap();
+    assert!(
+        saved.base_url.is_none(),
+        "stale base url survived onboarding"
+    );
 }
 
 #[tokio::test]

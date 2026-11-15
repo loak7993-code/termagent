@@ -111,9 +111,10 @@ async fn onboard(AxumState(state): AxumState<State>, Json(body): Json<OnboardBod
         cfg.keys
             .insert(body.provider.clone(), body.api_key.trim().to_string());
     }
-    if let Some(base) = body.base_url.filter(|b| !b.trim().is_empty()) {
-        cfg.base_url = Some(base);
-    }
+    cfg.base_url = body
+        .base_url
+        .filter(|base| !base.trim().is_empty())
+        .map(|base| base.trim().to_string());
     if cfg.key_for(provider).is_none() {
         return bad(
             StatusCode::BAD_REQUEST,
@@ -162,6 +163,12 @@ async fn set_model(AxumState(state): AxumState<State>, Json(body): Json<ModelBod
     };
     {
         let mut cfg = state.cfg.write().await;
+        if cfg.provider != body.provider {
+            if body.provider != "custom" {
+                cfg.base_url = None;
+            }
+            cfg.api_key.clear();
+        }
         cfg.provider = body.provider.clone();
         cfg.model = body.model.clone();
         if let Some(effort) = body.effort {

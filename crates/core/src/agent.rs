@@ -200,7 +200,17 @@ impl Agent {
                     return Err(Error::Cancelled);
                 }
                 Err(e) => {
-                    self.emit(AgentEvent::Error(e.to_string()));
+                    let rejected =
+                        matches!(&e, Error::Api { status, .. } if *status == 401 || *status == 403);
+                    let message = if rejected {
+                        format!(
+                            "{e}. The provider rejected the key for {} / {}. Run `termagent --onboard` to replace it, or `termagent --status` to see where the key comes from.",
+                            self.provider.name, self.model.id
+                        )
+                    } else {
+                        e.to_string()
+                    };
+                    self.emit(AgentEvent::Error(message));
                     return Err(e);
                 }
             };
